@@ -4,18 +4,6 @@
 
 Neural Ant is a single-user job-search application. It stores a resume and search profile in a private database, searches configured public employer career boards, ranks roles against your preferences, tracks applications, prepares resume drafts, and can email new-match alerts.
 
-## ✦ Feature spotlight
-
-![Private workspace](https://img.shields.io/badge/PRIVATE_WORKSPACE-Resume_&_profile_vault-173C2D?style=for-the-badge)
-![Job discovery](https://img.shields.io/badge/SMART_DISCOVERY-Greenhouse_•_Lever_•_Ashby-236B4F?style=for-the-badge)
-![Visa signals](https://img.shields.io/badge/H--1B_SIGNALS-Evidence_linked-496B35?style=for-the-badge)
-![Drafts](https://img.shields.io/badge/TAILORED_DRAFTS-Review_before_use-6B5B2B?style=for-the-badge)
-![Alerts](https://img.shields.io/badge/EMAIL_ALERTS-New_role_matches-315C78?style=for-the-badge)
-
-> **One private command center for your search:** upload your resume once, configure employer career boards, and let Neural Ant rank new roles, surface sponsorship evidence, track your pipeline, and prepare drafts for your review.
->
-> **Your call stays yours.** Applications and employer attestations are never submitted automatically.
-
 ## Current capabilities
 
 - Password-protected private workspace with HTTP-only session cookies.
@@ -54,11 +42,41 @@ docker compose down
 
 Your data remains in Docker volumes. To permanently remove local database and resume data, use `docker compose down -v` (destructive).
 
-## Deployment for laptop-off operation
+## Low-cost cloud deployment (laptop off)
 
-Deploy the container to an always-on host that supports Docker, PostgreSQL, persistent storage, and HTTPS. A small VM or container host is sufficient for one user. For Google Cloud Run, use managed PostgreSQL and a private GCS bucket for resumes; configure `GCS_BUCKET`, `GOOGLE_CLOUD_PROJECT`, database, and all secrets in the hosting provider’s secret manager. Do not use the container's local filesystem for persistent Cloud Run data.
+For a personal deployment, use Cloud Run for the app, Neon Free for PostgreSQL, Google Cloud Storage for the resume file, and Cloud Scheduler for the daily search. This avoids a paid Cloud SQL instance and keeps the existing PostgreSQL app architecture. The free quotas are usage limits, not a guaranteed $0 bill; configure billing alerts and check usage regularly.
 
-Configure the host's scheduler (for example, Cloud Scheduler) to send an authenticated `POST` request to `/api/internal/run-search` at the cadence you want, with header `X-Cron-Secret: <CRON_SECRET>`. Never place the secret in frontend code or a public URL. Set HTTPS before `APP_ENV=production`; that enables secure session cookies.
+### 1. Create the database in Neon
+
+Create a free Neon project and copy its **pooled** connection string. Use the PostgreSQL connection string as `DATABASE_URL`; the app accepts `postgresql://` and automatically selects the psycopg driver. Keep this value private and store it in Google Secret Manager. Neon Free currently lists 100 compute-hours and 1 GB of database storage per project; the compute can scale to zero while idle. Review the provider's limits before relying on it.
+
+### 2. Prepare the Google Cloud project
+
+Choose `us-central1` (Iowa) for the Cloud Run service and resume bucket. Enable billing on the project, then enable Cloud Run, Cloud Build, Artifact Registry, Cloud Storage, Secret Manager, and Cloud Scheduler APIs. Create a private regional Cloud Storage bucket and a dedicated service account for Neural Ant. Grant that service account access to objects in this bucket only. Attach that identity to the Cloud Run service.
+
+Set these values in Secret Manager or Cloud Run environment variables; do not commit them to Git:
+
+- `APP_ENV=production`
+- `DATABASE_URL` — the Neon pooled URL, stored as a secret
+- `NEURAL_ANT_PASSWORD` — a long, unique workspace password, stored as a secret
+- `SESSION_SECRET` — random secret of at least 32 characters, stored as a secret
+- `CRON_SECRET` — another random secret, stored as a secret
+- `GCS_BUCKET` — the private bucket name
+- `GOOGLE_CLOUD_PROJECT` — your Google Cloud project ID
+
+Deploy the repository's Dockerfile as a Cloud Run service in `us-central1`, with authentication required at the app layer (allow unauthenticated Cloud Run ingress so the login page can load), minimum instances set to zero, and an appropriate memory limit such as 512 MiB or 1 GiB. Cloud Run supplies HTTPS and a service URL. The service account needs permission to access only the resume bucket. The app uses GCS for uploaded resume files when `GCS_BUCKET` is set; profile, job, and application records go to Neon.
+
+### 3. Schedule job discovery
+
+Create one Cloud Scheduler HTTP job to `POST https://YOUR-CLOUD-RUN-URL/api/internal/run-search` on the schedule you choose. Add header `X-Cron-Secret` with the same `CRON_SECRET`. This endpoint validates that secret; never put it in the URL or frontend. Cloud Scheduler supports authenticated Cloud Run targets; configure its service identity if using Cloud Run IAM authentication. Keep this as one scheduler job.
+
+### 4. Add billing guardrails and verify
+
+Set a small Cloud Billing budget alert before deploying. Budget alerts notify you but do not stop usage automatically. Cloud Run, Cloud Storage, Neon, and Scheduler each have free quotas and separate overage policies; exceed any provider's quota and charges may apply. Google Cloud lists free usage for Cloud Run, regional storage, and three Scheduler jobs per billing account; Neon lists its own limits. Check current provider pricing and actual usage after the first week.
+
+After deployment, sign in, upload your resume, verify the extracted profile, configure employer boards, and run a manual search. Then confirm the scheduled run in logs and confirm email delivery if SMTP is configured. Do not upload a resume until you have reviewed where its file and extracted text are stored.
+
+Google Cloud Run's local filesystem is temporary, so do not store the resume or database there. Cloud Run can scale to zero and still be reached at its HTTPS URL; the scheduled worker starts it when it runs.
 
 Email is optional. Configure SMTP host, port, sender, credentials, and start-TLS settings. Interview schedules discovered in your email inbox are not yet parsed; notifications cover matching jobs only. SMS and automatic job applications are not included.
 
