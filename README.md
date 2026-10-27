@@ -64,7 +64,7 @@ Set these values in Secret Manager or Cloud Run environment variables; do not co
 - `GCS_BUCKET` — the private bucket name
 - `GOOGLE_CLOUD_PROJECT` — your Google Cloud project ID
 
-Deploy the repository's Dockerfile as a Cloud Run service in `us-central1`, with authentication required at the app layer (allow unauthenticated Cloud Run ingress so the login page can load), minimum instances set to zero, and an appropriate memory limit such as 512 MiB or 1 GiB. Cloud Run supplies HTTPS and a service URL. The service account needs permission to access only the resume bucket. The app uses GCS for uploaded resume files when `GCS_BUCKET` is set; profile, job, and application records go to Neon.
+Deploy the repository's Dockerfile as a Cloud Run service in `us-central1`, with authentication required at the app layer (allow unauthenticated Cloud Run ingress so the login page can load), minimum instances set to zero, maximum instances set to one, and an appropriate memory limit such as 512 MiB or 1 GiB. Cloud Run supplies HTTPS and a service URL. The service account needs permission to access only the resume bucket. The app uses GCS for uploaded resume files when `GCS_BUCKET` is set; profile, job, and application records go to Neon.
 
 ### 3. Schedule job discovery
 
