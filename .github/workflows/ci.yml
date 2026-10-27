@@ -1,0 +1,30 @@
+name: Build Neural Ant
+
+on:
+  push:
+    branches: [main, test, PROD]
+  pull_request:
+    branches: [main, test, PROD]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build static app
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build app
+        run: npm run build
+
+      - name: Confirm build output
+        run: test -s dist/index.html && test -s dist/styles.css && test -s dist/app.js
