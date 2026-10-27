@@ -6,7 +6,7 @@ Neural Ant is a single-user job-search application. It stores a resume and searc
 
 ## Current capabilities
 
-- Password-protected private workspace with HTTP-only session cookies.
+- Local single-user workspace opens directly without a sign-in screen; production mode retains password protection.
 - PDF/DOCX resume upload and basic profile extraction. Confirm extracted details before use.
 - Persistent PostgreSQL storage (SQLite for local development); resume files use a private volume or optional private Google Cloud Storage bucket.
 - Public job board search adapters for Greenhouse, Lever, and Ashby. You add employer board identifiers; this is not an all-platform aggregator.
@@ -29,13 +29,13 @@ Requirements: Python 3.10 or newer, Node.js 20 or newer, and npm. Docker is not 
 bash run-local.sh
 ```
 
-On the first run, the script installs dependencies, builds the interface, creates a private local SQLite database, and generates a workspace password. Save that password from Terminal. The resume and database are stored in the local `data/` directory; `.gitignore` keeps that folder and local secrets out of Git.
+On the first run, the script installs dependencies, builds the interface, and creates a local SQLite database. The resume and database are stored in the local `data/` directory; `.gitignore` keeps that folder and local secrets out of Git.
 
-Open [http://127.0.0.1:8080](http://127.0.0.1:8080), sign in with the generated password, then upload your resume in **My profile**. Verify the extracted profile and add employer boards under **Agent search**. To stop Neural Ant, return to Terminal and press **Ctrl+C**. Run `bash run-local.sh` again whenever you want to start it.
+Open [http://127.0.0.1:8080](http://127.0.0.1:8080), then upload your resume in **My profile**. Verify the extracted profile and add employer boards under **Agent search**. To stop Neural Ant, return to Terminal and press **Ctrl+C**. Run `bash run-local.sh` again whenever you want to start it.
 
 Local mode runs only while your Mac and the Terminal process are running. Searches will not run while the Mac is off or asleep. Your data stays on this Mac unless you explicitly configure an external AI provider; if you opt in to external AI drafting, resume and job text is sent to that provider.
 
-For manual setup, copy `.env.local.example` to `.env.local`, set unique values for the password and secrets, then run the build and Uvicorn commands described in the Developer workflow section.
+For manual setup, copy `.env.local.example` to `.env.local`, set unique secrets if using scheduled searches, then run the build and Uvicorn commands described in the Developer workflow section.
 
 ## Low-cost cloud deployment (laptop off)
 
@@ -53,13 +53,12 @@ Set these values in Secret Manager or Cloud Run environment variables; do not co
 
 - `APP_ENV=production`
 - `DATABASE_URL` — the Neon pooled URL, stored as a secret
-- `NEURAL_ANT_PASSWORD` — a long, unique workspace password, stored as a secret
 - `SESSION_SECRET` — random secret of at least 32 characters, stored as a secret
 - `CRON_SECRET` — another random secret, stored as a secret
 - `GCS_BUCKET` — the private bucket name
 - `GOOGLE_CLOUD_PROJECT` — your Google Cloud project ID
 
-Deploy the repository's Dockerfile as a Cloud Run service in `us-central1`, with authentication required at the app layer (allow unauthenticated Cloud Run ingress so the login page can load), minimum instances set to zero, maximum instances set to one, and an appropriate memory limit such as 512 MiB or 1 GiB. Cloud Run supplies HTTPS and a service URL. The service account needs permission to access only the resume bucket. The app uses GCS for uploaded resume files when `GCS_BUCKET` is set; profile, job, and application records go to Neon.
+Deploy the repository's Dockerfile as a Cloud Run service in `us-central1`, with password authentication enabled at the app layer, minimum instances set to zero, maximum instances set to one, and an appropriate memory limit such as 512 MiB or 1 GiB. Cloud Run supplies HTTPS and a service URL. The service account needs permission to access only the resume bucket. The app uses GCS for uploaded resume files when `GCS_BUCKET` is set; profile, job, and application records go to Neon.
 
 ### 3. Schedule job discovery
 
@@ -79,6 +78,18 @@ Email is optional. Configure SMTP host, port, sender, credentials, and start-TLS
 
 By default, Neural Ant creates a local draft that reorders existing resume lines. To use an OpenAI-compatible provider, set `OPENAI_API_KEY`, `OPENAI_BASE_URL`, and `OPENAI_MODEL` in the server secret configuration. The app asks for confirmation each time before sending resume, profile, and job text to that provider. Generated content remains a draft and must be checked against your resume.
 
+## Fill application forms with the local Chrome extension
+
+The extension fills common contact fields from your saved Neural Ant profile in the browser tab you are using. It does not submit applications. It intentionally leaves work authorization, sponsorship, referrals, demographic questions, legal attestations, and unknown answers for you to complete. It also does not upload a resume attachment; attach the right resume file yourself and review all filled fields before submitting.
+
+1. Start the local app with `bash run-local.sh` and open `http://127.0.0.1:8080`.
+2. In **My profile**, upload your resume, review the extracted facts, and save your name, email, phone, current location, current company, and current role.
+3. In Chrome, open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select this repository's `extension` folder.
+4. Open an employer application page, click the Neural Ant extension icon, then click **Fill visible form**.
+5. Review every answer, complete personal attestations yourself, attach the tailored resume, and submit manually.
+
+The extension reads only the supported fields from the local API at `127.0.0.1:8080` when you click its button. Keep Neural Ant running while using it. The extension files are in `extension/`; reload the extension from `chrome://extensions` after updating them. This local extension setup is for Chrome and does not use an external browser session.
+
 ## Search setup
 
 Add a board by selecting its ATS and entering its public board slug and display name. For example, a career page hosted by `boards.greenhouse.io/acme` commonly uses `acme` as its board slug. Board formats can change; errors for a board are returned in the manual search result. The worker only searches the boards you configure, not LinkedIn, Indeed, or every job site.
@@ -96,9 +107,9 @@ Use a normalized export from an official source. The app does not automatically 
 
 - The repository is public; never commit resumes, `.env`, credentials, or exported personal data.
 - Resume file objects are stored outside the repository. Restrict the GCS bucket or host volume to this app's service identity.
-- Use HTTPS and a long unique password. Add backups for the database and resume bucket before relying on the service.
+- Local mode has no sign-in because it listens only on your own computer (`127.0.0.1`). Do not change the bind address or expose it to a network. Production mode requires a unique password and HTTPS. Add backups for the database and resume bucket before relying on the service.
 - Configure SMTP and AI credentials only in the deployment secret manager, never in the browser.
-- The API provides a single password login, an HTTP-only cookie, basic request security headers, and login throttling. For internet exposure, put it behind a reputable HTTPS reverse proxy and enable host-level rate limits and backups.
+- Production mode provides password login, an HTTP-only cookie, basic request security headers, and login throttling. Local mode skips login and is intended only for the loopback interface.
 - Fit scores are ranking aids, not hiring predictions. Validate job details, compensation, authorization requirements, and sponsorship with the employer.
 
 ## Developer workflow

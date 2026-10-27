@@ -1,0 +1,9 @@
+{
+  "manifest_version": 3,
+  "name": "Neural Ant Form Assistant",
+  "version": "0.1.0",
+  "description": "Fill supported job application fields from your local Neural Ant profile. You review and submit.",
+  "permissions": ["activeTab", "scripting"],
+  "host_permissions": ["http://127.0.0.1:8080/*", "http://localhost:8080/*"],
+  "action": { "default_title": "Fill with Neural Ant", "default_popup": "popup.html" }
+}

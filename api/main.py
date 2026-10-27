@@ -156,6 +156,9 @@ class AlertRow(Base):
 DEFAULT_PROFILE: dict[str, Any] = {
     "name": "",
     "email": "",
+    "phone": "",
+    "location": "",
+    "current_company": "",
     "role": "",
     "skills": [],
     "education": "",
@@ -305,6 +308,10 @@ def authenticated(request: Request) -> bool:
 
 
 def require_auth(request: Request) -> None:
+    # Local single-user mode is bound to 127.0.0.1 by run-local.sh.
+    # Keep authentication enabled for production deployments.
+    if APP_ENV != "production":
+        return
     if not authenticated(request):
         raise HTTPException(status_code=401, detail="Sign in to Neural Ant.")
 
@@ -584,11 +591,15 @@ app = FastAPI(title="Neural Ant", version="1.0.0", docs_url="/api/docs" if APP_E
 
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
+    origin = request.headers.get("origin", "")
+    extension_origin = origin.startswith("chrome-extension://") and len(origin) > len("chrome-extension://")
     if request.method in {"POST", "PUT", "PATCH", "DELETE"} and request.url.path.startswith("/api/") and request.url.path not in {"/api/auth/login", "/api/internal/run-search"}:
-        origin = request.headers.get("origin")
-        if origin and origin.rstrip("/") != str(request.base_url).rstrip("/"):
+        if origin and origin.rstrip("/") != str(request.base_url).rstrip("/") and not extension_origin:
             return JSONResponse({"detail": "Cross-origin requests are not allowed."}, status_code=403)
     response = await call_next(request)
+    if extension_origin and request.url.path == "/api/form-profile":
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Vary"] = "Origin"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
@@ -613,6 +624,8 @@ def config():
 
 @app.get("/api/session")
 def session_status(request: Request):
+    if APP_ENV != "production":
+        return {"authenticated": True, "local_mode": True}
     if not authenticated(request):
         raise HTTPException(status_code=401, detail="Not signed in")
     return {"authenticated": True}
@@ -654,6 +667,23 @@ def get_profile(_: None = Depends(require_auth), db: Session = Depends(get_db)):
     row = ensure_profile(db)
     resume = db.get(ResumeRow, 1)
     return {"profile": row.data or DEFAULT_PROFILE, "resume": {"filename": resume.filename, "uploaded_at": now_iso(resume.uploaded_at)} if resume else None}
+
+
+@app.get("/api/form-profile")
+def get_form_profile(_: None = Depends(require_auth), db: Session = Depends(get_db)):
+    """Return only user-approved contact/profile fields for the local browser extension."""
+    row = ensure_profile(db)
+    data = row.data or DEFAULT_PROFILE
+    return {
+        "name": data.get("name", ""),
+        "email": data.get("email", ""),
+        "phone": data.get("phone", ""),
+        "location": data.get("location", ""),
+        "current_company": data.get("current_company", ""),
+        "current_role": data.get("role", ""),
+        "work_authorization": data.get("work_authorization", ""),
+        "sponsorship_preferences": data.get("sponsorship_preferences", ""),
+    }
 
 
 @app.put("/api/profile")

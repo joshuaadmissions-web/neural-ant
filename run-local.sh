@@ -24,25 +24,19 @@ npm run build
 
 if [ ! -f .env.local ]; then
   cp .env.local.example .env.local
-  workspace_password="$(python -c 'import secrets; print(secrets.token_urlsafe(24))')"
   session_secret="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
   cron_secret="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
-  python - "$workspace_password" "$session_secret" "$cron_secret" <<'PY'
+  python - "$session_secret" "$cron_secret" <<'PYINIT'
 from pathlib import Path
 import sys
 
 path = Path(".env.local")
 text = path.read_text()
-text = text.replace("NEURAL_ANT_PASSWORD=generated-by-run-local-script", f"NEURAL_ANT_PASSWORD={sys.argv[1]}")
-text = text.replace("SESSION_SECRET=generated-by-run-local-script", f"SESSION_SECRET={sys.argv[2]}")
-text = text.replace("CRON_SECRET=generated-by-run-local-script", f"CRON_SECRET={sys.argv[3]}")
+text = text.replace("SESSION_SECRET=generated-by-run-local-script", f"SESSION_SECRET={sys.argv[1]}")
+text = text.replace("CRON_SECRET=generated-by-run-local-script", f"CRON_SECRET={sys.argv[2]}")
 path.write_text(text)
-PY
+PYINIT
   chmod 600 .env.local
-  echo
-  echo "Your local Neural Ant login password is: $workspace_password"
-  echo "Save it somewhere private. It is also stored in the ignored .env.local file."
-  echo
 fi
 
 echo "Neural Ant is starting at http://127.0.0.1:8080"
