@@ -4,6 +4,18 @@
 
 Neural Ant is a single-user job-search application. It stores a resume and search profile in a private database, searches configured public employer career boards, ranks roles against your preferences, tracks applications, prepares resume drafts, and can email new-match alerts.
 
+## ✦ Feature spotlight
+
+![Private workspace](https://img.shields.io/badge/PRIVATE_WORKSPACE-Resume_&_profile_vault-173C2D?style=for-the-badge)
+![Job discovery](https://img.shields.io/badge/SMART_DISCOVERY-Greenhouse_•_Lever_•_Ashby-236B4F?style=for-the-badge)
+![Visa signals](https://img.shields.io/badge/H--1B_SIGNALS-Evidence_linked-496B35?style=for-the-badge)
+![Drafts](https://img.shields.io/badge/TAILORED_DRAFTS-Review_before_use-6B5B2B?style=for-the-badge)
+![Alerts](https://img.shields.io/badge/EMAIL_ALERTS-New_role_matches-315C78?style=for-the-badge)
+
+> **One private command center for your search:** upload your resume once, configure employer career boards, and let Neural Ant rank new roles, surface sponsorship evidence, track your pipeline, and prepare drafts for your review.
+>
+> **Your call stays yours.** Applications and employer attestations are never submitted automatically.
+
 ## Current capabilities
 
 - Password-protected private workspace with HTTP-only session cookies.
