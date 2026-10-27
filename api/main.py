@@ -34,6 +34,10 @@ logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 log = logging.getLogger("neural-ant")
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data/neural_ant.db")
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = "postgresql+psycopg://" + DATABASE_URL.removeprefix("postgres://")
+elif DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = "postgresql+psycopg://" + DATABASE_URL.removeprefix("postgresql://")
 UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", "./data/resumes"))
 GCS_BUCKET = os.getenv("GCS_BUCKET", "").strip()
 APP_ENV = os.getenv("APP_ENV", "development").lower()
@@ -276,7 +280,9 @@ def delete_resume_file(file_ref: str) -> None:
         try:
             from google.cloud import storage
 
-            _, bucket_name, key = file_ref.split("/", 2)
+            bucket_name, _, key = file_ref[5:].partition("/")
+            if not bucket_name or not key:
+                raise ValueError("Invalid GCS object reference")
             storage.Client().bucket(bucket_name).blob(key).delete()
         except Exception:
             log.exception("Unable to delete resume object from cloud storage")
