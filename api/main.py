@@ -681,6 +681,9 @@ def get_form_profile(_: None = Depends(require_auth), db: Session = Depends(get_
         "location": data.get("location", ""),
         "current_company": data.get("current_company", ""),
         "current_role": data.get("role", ""),
+        "years_experience": data.get("years_experience"),
+        "skills": data.get("skills", []),
+        "summary": data.get("summary", ""),
         "work_authorization": data.get("work_authorization", ""),
         "sponsorship_preferences": data.get("sponsorship_preferences", ""),
     }
