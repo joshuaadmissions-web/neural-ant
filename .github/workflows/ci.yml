@@ -23,8 +23,11 @@ jobs:
         with:
           node-version: 20
 
-      - name: Build app
+      - name: Build frontend
         run: npm run build
+
+      - name: Check backend syntax
+        run: python3 -m py_compile api/main.py
 
       - name: Confirm build output
         run: test -s dist/index.html && test -s dist/styles.css && test -s dist/app.js
