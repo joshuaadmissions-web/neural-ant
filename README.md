@@ -18,29 +18,24 @@ Neural Ant is a single-user job-search application. It stores a resume and searc
 
 Neural Ant does not submit job applications or complete employer attestations. Keep every answer truthful and review tailored documents yourself.
 
-## Run locally
+## Run locally on your Mac
 
-Requirements: Docker and Docker Compose.
+Requirements: Python 3.10 or newer, Node.js 20 or newer, and npm. Docker is not required for local use.
 
-```bash
-cp .env.example .env
-```
-
-Edit `.env` and set strong unique values for `NEURAL_ANT_PASSWORD`, `SESSION_SECRET`, `CRON_SECRET`, and `POSTGRES_PASSWORD`. Set `APP_ENV=production` when using HTTPS. Then start the service:
+1. Download or clone this repository and open Terminal in the `neural-ant` folder.
+2. Start Neural Ant:
 
 ```bash
-docker compose up --build -d
+bash run-local.sh
 ```
 
-Open [http://localhost:8080](http://localhost:8080). Sign in with `NEURAL_ANT_PASSWORD`. Upload your resume in **My profile**, verify the extracted details, set your search preferences and notification email, then add employer boards under **Agent search**.
+On the first run, the script installs dependencies, builds the interface, creates a private local SQLite database, and generates a workspace password. Save that password from Terminal. The resume and database are stored in the local `data/` directory; `.gitignore` keeps that folder and local secrets out of Git.
 
-To stop the local service:
+Open [http://127.0.0.1:8080](http://127.0.0.1:8080), sign in with the generated password, then upload your resume in **My profile**. Verify the extracted profile and add employer boards under **Agent search**. To stop Neural Ant, return to Terminal and press **Ctrl+C**. Run `bash run-local.sh` again whenever you want to start it.
 
-```bash
-docker compose down
-```
+Local mode runs only while your Mac and the Terminal process are running. Searches will not run while the Mac is off or asleep. Your data stays on this Mac unless you explicitly configure an external AI provider; if you opt in to external AI drafting, resume and job text is sent to that provider.
 
-Your data remains in Docker volumes. To permanently remove local database and resume data, use `docker compose down -v` (destructive).
+For manual setup, copy `.env.local.example` to `.env.local`, set unique values for the password and secrets, then run the build and Uvicorn commands described in the Developer workflow section.
 
 ## Low-cost cloud deployment (laptop off)
 
@@ -111,7 +106,7 @@ Use a normalized export from an official source. The app does not automatically 
 ```bash
 npm run build
 python -m pip install -r requirements.txt
-uvicorn api.main:app --reload --port 8080
+uvicorn api.main:app --env-file .env.local --reload --host 127.0.0.1 --port 8080
 ```
 
 The API documentation is available at `/api/docs` outside production mode. Frontend assets are built from `src/` into `dist/`.
