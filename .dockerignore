@@ -1,0 +1,16 @@
+.git
+.github
+.env
+.env.*
+!.env.example
+__pycache__
+*.py[cod]
+.venv
+venv
+node_modules
+npm-debug.log
+.DS_Store
+data
+*.pdf
+*.docx
+*.csv
