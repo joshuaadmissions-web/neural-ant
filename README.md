@@ -80,15 +80,15 @@ By default, Neural Ant creates a local draft that reorders existing resume lines
 
 ## Fill application forms with the local Chrome extension
 
-The extension fills supported contact fields, experience ranges, matching skill checkboxes, and selected profile-based answers from your saved Neural Ant profile in the browser tab you are using. It does not submit applications. It leaves current work authorization, unknown experience claims, referrals, legal attestations, and voluntary demographic questions for you to complete. It also does not upload a resume attachment; attach the right resume file yourself and review all filled fields before submitting.
+The extension watches page structure for job application forms and displays a small **Fill application** button when it detects one. Detection happens locally from visible field labels and page headings; entered values are not collected. When you click the button, it fills supported empty contact fields, experience ranges, matching skill checkboxes, and selected profile-based answers from your saved Neural Ant profile. It does not overwrite nonempty fields or submit applications. It leaves current work authorization, unknown experience claims, referrals, legal attestations, and voluntary demographic questions for you to complete. It also does not upload a resume attachment; attach the right resume file yourself and review all filled fields before submitting.
 
 1. Start the local app with `bash run-local.sh` and open `http://127.0.0.1:8080`.
 2. In **My profile**, upload your resume, review the extracted facts, and save your name, email, phone, current location, current company, current role, experience, and skills.
 3. In Chrome, open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select this repository's `extension` folder.
-4. Open an employer application page, click the Neural Ant extension icon, then click **Fill visible form**.
+4. Open an employer application page. When detected, click the Neural Ant button that appears on the page; you can also click the extension icon and choose **Fill this application**.
 5. Review every answer, complete personal attestations yourself, attach the tailored resume, and submit manually.
 
-The extension reads only the supported fields from the local API at `127.0.0.1:8080` when you click its button. Keep Neural Ant running while using it. The extension files are in `extension/`; reload the extension from `chrome://extensions` after updating them. This local extension setup is for Chrome and does not use an external browser session.
+The extension reads supported profile fields from the local API at `127.0.0.1:8080` only after you click a fill button. Chrome grants it access to HTTPS pages so it can detect application forms. Keep Neural Ant running while using it. The extension files are in `extension/`; reload the extension from `chrome://extensions` after updating them. This local extension setup is for Chrome and does not use an external browser session.
 
 ## Search setup
 
