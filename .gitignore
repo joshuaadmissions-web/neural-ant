@@ -1,7 +1,13 @@
 # Secrets and local configuration
 .env
+.env.local
+data/
+*.db
+*.sqlite
+*.sqlite3
 .env.*
 !.env.example
+!.env.local.example
 secrets.*
 credentials.*
 
