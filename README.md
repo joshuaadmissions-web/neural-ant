@@ -15,9 +15,10 @@ Neural Ant is a personal career-search workspace for organizing promising roles 
 
 ## Run locally
 
-The current app is a static HTML, CSS, and JavaScript prototype with no build step or server-side dependencies.
+The current app is a static HTML, CSS, and JavaScript prototype with no server-side dependencies. Its source is separated into readable files and built with Node.js; no third-party packages are required.
 
 ```bash
+npm run build
 python3 -m http.server 4173 --directory dist
 ```
 
@@ -33,20 +34,30 @@ The repository does not contain a resume upload service, cloud database, schedul
 
 ```text
 .
+├── .github/workflows/ci.yml
 ├── .openai/hosting.json   # Neural Ant Sites project configuration
+├── package.json
+├── scripts/
+│   └── build.mjs
+├── src/
+│   ├── app.js
+│   ├── index.html
+│   └── styles.css
 ├── dist/
-│   └── index.html         # App interface and client-side behavior
+│   ├── app.js             # Generated static assets
+│   ├── index.html
+│   └── styles.css
 ├── .gitignore
 └── README.md
 ```
 
 ## Branches
 
-- **`dev`** — ongoing development.
+- **`main`** — ongoing development and the default branch.
 - **`test`** — changes prepared for review and verification.
 - **`PROD`** — the approved production snapshot.
 
-Promote changes from `dev` to `test`, then to `PROD` after review. Keep credentials, resumes, exported backups, and personal application data out of Git.
+Develop directly on `main`, promote reviewed changes to `test`, then promote approved releases to `PROD`. GitHub Actions builds the static app on pushes and pull requests targeting these branches. Keep credentials, resumes, exported backups, and personal application data out of Git.
 
 ## Roadmap
 
