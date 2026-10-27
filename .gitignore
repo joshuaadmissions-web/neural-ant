@@ -1,0 +1,26 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+secrets.*
+credentials.*
+
+# Personal career data and generated exports
+*.pdf
+*.doc
+*.docx
+neural-ant-backup.json
+resume*
+cover-letter*
+
+# Local tooling and operating-system files
+.DS_Store
+Thumbs.db
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+coverage/
