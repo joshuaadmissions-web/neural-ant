@@ -129,3 +129,14 @@ The API documentation is available at `/api/docs` outside production mode. Front
 - `PROD` is the release branch.
 
 Keep personal profile data and secrets outside Git. GitHub Actions builds the frontend on pushes and pull requests.
+
+## Use with Strawberry Companions
+
+This repository includes a portable setup pack for a private Strawberry job-search companion. It guides research and reporting; it does not install a companion or configure a scheduled routine in Strawberry.
+
+- [Companion setup and privacy notes](strawberry/README.md)
+- [Companion brief](strawberry/companion-brief.md)
+- [Verified job-search skill](strawberry/skills/job-search-skill.md)
+- [Optional routine prompt](strawberry/routines/routine-prompt.md)
+
+Keep your resume and candidate profile in Strawberry's private workspace. Do not commit them to this public repository. Run the search manually and review its results before enabling any recurring routine.
