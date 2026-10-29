@@ -85,8 +85,9 @@ The extension watches page structure for job application forms and displays a sm
 1. Start the local app with `bash run-local.sh` and open `http://127.0.0.1:8080`.
 2. In **My profile**, upload your resume, review the extracted facts, and save your name, email, phone, current location, current company, current role, experience, and skills.
 3. In Chrome, open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select this repository's `extension` folder.
-4. Open an employer application page. When detected, click the Neural Ant button that appears on the page; you can also click the extension icon and choose **Fill this application**.
-5. Review every answer, complete personal attestations yourself, attach the tailored resume, and submit manually.
+4. Open an employer job posting. Click the Neural Ant extension icon, choose **Find application links**, select the correct employer link, then click **Open selected application**. Neural Ant opens the link you selected in a new tab; it does not click page buttons automatically.
+5. On the application page, use the inline **Fill application** button or the extension popup's **Fill this application** button. It fills supported empty fields from your saved profile.
+6. Review every answer, attach the tailored resume yourself, complete personal attestations yourself, and submit manually.
 
 The extension reads supported profile fields from the local API at `127.0.0.1:8080` only after you click a fill button. Chrome grants it access to HTTPS pages so it can detect application forms. Keep Neural Ant running while using it. The extension files are in `extension/`; reload the extension from `chrome://extensions` after updating them. This local extension setup is for Chrome and does not use an external browser session.
 

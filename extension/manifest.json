@@ -1,15 +1,31 @@
 {
   "manifest_version": 3,
   "name": "Neural Ant Form Assistant",
-  "version": "0.3.0",
-  "description": "Fill supported job application fields from your local Neural Ant profile. You review and submit.",
-  "permissions": ["activeTab"],
-  "host_permissions": ["http://127.0.0.1:8080/*", "http://localhost:8080/*"],
-  "background": { "service_worker": "background.js" },
-  "content_scripts": [{
-    "matches": ["https://*/*"],
-    "js": ["content.js"],
-    "run_at": "document_idle"
-  }],
-  "action": { "default_title": "Fill with Neural Ant", "default_popup": "popup.html" }
+  "version": "0.4.0",
+  "description": "Find and open an employer application link, then fill supported fields from your local Neural Ant profile. You review and submit.",
+  "permissions": [
+    "activeTab"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1:8080/*",
+    "http://localhost:8080/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "Fill with Neural Ant",
+    "default_popup": "popup.html"
+  }
 }

@@ -210,7 +210,33 @@
     return { filled, skipped: [...new Set(skipped)] };
   }
 
+  function findApplicationLinks() {
+    const links = [...document.querySelectorAll('a[href]')].filter(visible).map(anchor => {
+      const label = String(anchor.innerText || anchor.getAttribute('aria-label') || anchor.title || '').replace(/\s+/g, ' ').trim();
+      let url;
+      try { url = new URL(anchor.href, location.href); } catch { return null; }
+      if (url.protocol !== 'https:' || /submit|send application|withdraw|cancel/.test(norm(label))) return null;
+      const labelText = norm(label);
+      const urlText = norm(url.pathname);
+      const matches = (/\bapply\b/.test(labelText) && !/apply filters|apply search/.test(labelText))
+        || /start application|job application|application form|continue application/.test(labelText)
+        || /\bapply\b/.test(urlText);
+      if (!matches) return null;
+      return { label: label || 'Apply', url: url.href };
+    }).filter(Boolean);
+    const seen = new Set();
+    return links.filter(link => {
+      if (seen.has(link.url)) return false;
+      seen.add(link.url);
+      return true;
+    }).slice(0, 10);
+  }
+
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message?.type === 'NEURAL_ANT_FIND_APPLY_LINKS') {
+      sendResponse({ ok: true, links: findApplicationLinks() });
+      return false;
+    }
     if (message?.type !== 'NEURAL_ANT_FILL') return false;
     if (!isApplicationPage()) { sendResponse({ ok: false, message: 'No job application form detected on this page.' }); return false; }
     const status = banner?.shadow.querySelector('#status');

@@ -2,17 +2,24 @@
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Neural Ant Form Assistant</title>
+<title>Neural Ant RPA Assistant</title>
 <style>
-  body{font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;width:300px;margin:0;padding:18px;color:#18211d;background:#f8faf7}
+  body{font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;width:320px;margin:0;padding:18px;color:#18211d;background:#f8faf7}
   h1{font-size:17px;margin:0 0 5px;color:#183c2d}.muted{color:#65736a;font-size:12px;margin:0 0 14px}
-  button{width:100%;padding:11px;border:0;border-radius:9px;background:#1d6b4d;color:#fff;font-weight:700;cursor:pointer}
-  button:disabled{opacity:.55;cursor:wait}#status{font-size:12px;margin-top:12px;white-space:pre-wrap}.note{font-size:11px;color:#6a756e;margin-top:12px}
+  button,select{width:100%;padding:10px;border:1px solid #d5dfd8;border-radius:9px;background:white;color:#18211d;font:inherit;margin:0 0 8px}
+  button{background:#1d6b4d;color:#fff;font-weight:700;cursor:pointer;border:0}
+  button.secondary{background:#e9f2ec;color:#19573c;border:1px solid #d5e3d9}
+  button:disabled,select:disabled{opacity:.55;cursor:wait}
+  #status{font-size:12px;margin-top:6px;white-space:pre-wrap}.note{font-size:11px;color:#6a756e;margin-top:12px}
 </style>
-<h1>Neural Ant</h1>
-<p class="muted">Neural Ant detects job application forms and adds a fill button to the page.</p>
+<h1>Neural Ant RPA</h1>
+<p class="muted">Find an employer application link, open the one you choose, then fill recognized fields.</p>
+<button id="find">Find application links</button>
+<select id="links" aria-label="Application links" disabled><option value="">Find links on this page first</option></select>
+<button id="open" class="secondary" disabled>Open selected application</button>
+<hr>
 <button id="fill">Fill this application</button>
 <div id="status" role="status"></div>
-<p class="note">Only empty recognized fields are filled. Neural Ant does not submit or read what you type. Review answers and complete personal attestations yourself.</p>
+<p class="note">Only empty recognized fields are filled. Nothing is submitted. Review all answers and complete personal attestations yourself.</p>
 <script src="popup.js"></script>
 </html>
