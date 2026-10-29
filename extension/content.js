@@ -126,7 +126,7 @@
       ['last name', nameParts.length > 1 ? nameParts.slice(1).join(' ') : '', text => /last name|surname/.test(text)],
       ['email', profile.email, text => /email|e mail/.test(text)],
       ['phone', profile.phone, text => /phone|mobile|telephone/.test(text)],
-      ['location', profile.location, text => /current location|city|location|address/.test(text)],
+      ['location', profile.location, text => /current location|city|location/.test(text)],
       ['current company', profile.current_company, text => /current company|current employer/.test(text)],
       ['current role', profile.current_role, text => /current role|current title/.test(text)],
     ];
@@ -177,20 +177,6 @@
       if (choice) { choice.click(); filled.push('Python response'); }
     }
 
-    const sponsorshipText = norm(`${profile.work_authorization || ''} ${profile.sponsorship_preferences || ''}`);
-    if (/h 1b|h1b|sponsorship|visa sponsor/.test(sponsorshipText)) {
-      for (const element of controls.filter(control => control.matches('select'))) {
-        if (!/now or in the future require employment sponsorship/.test(fieldText(element))) continue;
-        const yes = [...element.options].find(option => norm(option.textContent) === 'yes');
-        if (yes) { setValue(element, yes.value); filled.push('future sponsorship'); }
-      }
-      for (const element of controls.filter(control => control.matches('input[type="radio"]'))) {
-        if (/now or in the future require employment sponsorship/.test(nearbyQuestion(element)) && fieldText(element) === 'yes' && !element.checked) {
-          element.click(); filled.push('future sponsorship'); break;
-        }
-      }
-    }
-
     const state = ['alabama','alaska','arizona','arkansas','california','colorado','connecticut','delaware','florida','georgia','hawaii','idaho','illinois','indiana','iowa','kansas','kentucky','louisiana','maine','maryland','massachusetts','michigan','minnesota','mississippi','missouri','montana','nebraska','nevada','new hampshire','new jersey','new mexico','new york','north carolina','north dakota','ohio','oklahoma','oregon','pennsylvania','rhode island','south carolina','south dakota','tennessee','texas','utah','vermont','virginia','washington','west virginia','wisconsin','wyoming'].find(item => location.includes(item));
     if (state) {
       for (const element of controls.filter(control => control.matches('select'))) {
@@ -201,6 +187,7 @@
     }
 
     if (controls.some(element => /authorized to work/.test(nearbyQuestion(element)))) skipped.push('current work authorization');
+    if (controls.some(element => /now or in the future require employment sponsorship|require.*sponsorship/.test(nearbyQuestion(element)))) skipped.push('future sponsorship question');
     if (controls.some(element => /production|live users/.test(nearbyQuestion(element)))) skipped.push('production experience claim');
     if (controls.some(element => /healthcare|regulated|high stakes/.test(nearbyQuestion(element)))) skipped.push('regulated-domain experience claim');
     if (controls.some(element => /responsibility listed|newest to you/.test(nearbyQuestion(element)))) skipped.push('role-specific written response');

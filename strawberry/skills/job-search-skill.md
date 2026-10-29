@@ -31,4 +31,4 @@ For each match, provide:
 - One short, evidence-based fit note tied to the candidate profile
 
 ## Do not
-Do not apply, submit forms, upload files, contact employers, or complete attestations. Do not claim sponsorship from filing history alone. Do not report a job as open without checking its live employer-controlled page.
+Do not apply, submit forms, upload files, contact employers, or complete attestations. The separate Neural Ant browser extension can help the user navigate to a selected application link and fill supported empty fields, but this job-search skill must not invoke it or submit anything. Do not claim sponsorship from filing history alone. Do not report a job as open without checking its live employer-controlled page.

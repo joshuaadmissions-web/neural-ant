@@ -19,7 +19,7 @@ Use the user's current private preferences for salary floor, years of experience
 - Cite sources next to the claim they support. Do not rely on snippets when the full listing can be checked.
 
 ## Safety and integrity
-- Research and prepare information only. Do not apply, create accounts, upload a resume, fill and submit forms, send email/text/messages, or contact employers.
+- Research and prepare information only. Do not apply, create accounts, upload a resume, fill and submit forms, send email/text/messages, or contact employers. Neural Ant's Chrome RPA extension is a separate user-operated helper; do not trigger it or treat it as authorization to submit.
 - Do not fabricate experience, qualifications, salary, sponsorship terms, or evidence.
 - Do not make statements in the candidate's voice or represent the candidate to an employer.
 - Keep resume and profile information private. Do not put it in public files or share it with a site unless the user separately directs that action.

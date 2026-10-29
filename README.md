@@ -78,18 +78,20 @@ Email is optional. Configure SMTP host, port, sender, credentials, and start-TLS
 
 By default, Neural Ant creates a local draft that reorders existing resume lines. To use an OpenAI-compatible provider, set `OPENAI_API_KEY`, `OPENAI_BASE_URL`, and `OPENAI_MODEL` in the server secret configuration. The app asks for confirmation each time before sending resume, profile, and job text to that provider. Generated content remains a draft and must be checked against your resume.
 
-## Fill application forms with the local Chrome extension
+## Navigate and fill application forms with browser RPA
 
-The extension watches page structure for job application forms and displays a small **Fill application** button when it detects one. Detection happens locally from visible field labels and page headings; entered values are not collected. When you click the button, it fills supported empty contact fields, experience ranges, matching skill checkboxes, and selected profile-based answers from your saved Neural Ant profile. It does not overwrite nonempty fields or submit applications. It leaves current work authorization, unknown experience claims, referrals, legal attestations, and voluntary demographic questions for you to complete. It also does not upload a resume attachment; attach the right resume file yourself and review all filled fields before submitting.
+The local Chrome extension provides a supervised browser workflow: from an employer job posting, it finds visible HTTPS links labeled for applying; you choose the correct link and open it in a new tab; on the application page, you click **Fill application** to fill supported empty fields from your saved Neural Ant profile. It does not click page buttons automatically, overwrite populated fields, upload a resume, or submit the application.
 
-1. Start the local app with `bash run-local.sh` and open `http://127.0.0.1:8080`.
-2. In **My profile**, upload your resume, review the extracted facts, and save your name, email, phone, current location, current company, current role, experience, and skills.
-3. In Chrome, open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select this repository's `extension` folder.
-4. Open an employer job posting. Click the Neural Ant extension icon, choose **Find application links**, select the correct employer link, then click **Open selected application**. Neural Ant opens the link you selected in a new tab; it does not click page buttons automatically.
-5. On the application page, use the inline **Fill application** button or the extension popup's **Fill this application** button. It fills supported empty fields from your saved profile.
+It checks visible field labels and current values locally to identify supported empty fields. It does not send form contents to Neural Ant or another service. It leaves work-authorization and sponsorship questions, unknown experience claims, referrals, legal attestations, demographic questions, and role-specific written answers for you. Attach the correct resume yourself and review the entire form before submitting.
+
+1. Start Neural Ant with `bash run-local.sh` and open `http://127.0.0.1:8080`.
+2. In **My profile**, upload your resume, verify the extracted profile, and save the details the extension may use.
+3. In Chrome, open `chrome://extensions`, enable **Developer mode**, select **Load unpacked**, and choose this repository's `extension` folder. After an update, reload the extension and refresh job pages already open.
+4. Open a job posting from Neural Ant or the employer's career site. Click the Neural Ant extension icon, choose **Find application links**, select the correct employer application link, and click **Open selected application**. Only visible HTTPS links are offered; the extension does not click page buttons.
+5. On the application page, click the inline **Fill application** button or open the extension and choose **Fill this application**.
 6. Review every answer, attach the tailored resume yourself, complete personal attestations yourself, and submit manually.
 
-The extension reads supported profile fields from the local API at `127.0.0.1:8080` only after you click a fill button. Chrome grants it access to HTTPS pages so it can detect application forms. Keep Neural Ant running while using it. The extension files are in `extension/`; reload the extension from `chrome://extensions` after updating them. This local extension setup is for Chrome and does not use an external browser session.
+The extension fetches saved form-profile fields from Neural Ant at `127.0.0.1:8080` only after you click a fill action. Keep Neural Ant running locally. Chrome grants its content script access to HTTPS pages to detect application forms and inspect apply links when requested. The extension files are in `extension/`.
 
 ## Search setup
 

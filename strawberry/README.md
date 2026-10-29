@@ -16,4 +16,6 @@ Strawberry's current product describes companions as persistent agents with thei
 Ask: “Use the Neural Ant Job Search skill and my private candidate profile. Find currently open U.S. agentic AI engineering roles matching my criteria. Return only new or materially changed verified roles. Do not apply, submit, upload, or contact anyone.”
 
 ## Data boundary
-The companion may read public job pages and the private candidate material you choose to attach. It should return source links, dates checked, and evidence. The repository itself should contain no candidate-specific personal information.
+The companion may read public job pages and the private candidate material you choose to attach. It should return source links, dates checked, and evidence. The local Neural Ant Chrome extension is a separate supervised RPA helper: it can surface application links for the user to choose and fill supported empty fields after the user clicks. It does not submit applications, upload resumes, or answer attestations. The Strawberry companion instructions remain research-only.
+
+The repository itself should contain no candidate-specific personal information.

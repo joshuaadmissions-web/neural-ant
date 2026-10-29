@@ -29,7 +29,7 @@ findButton.addEventListener('click', async () => {
     for (const link of result.links) linksSelect.add(new Option(`${link.label} — ${new URL(link.url).hostname}`, link.url));
     linksSelect.disabled = false;
     openButton.disabled = false;
-    status.textContent = `Found ${result.links.length} link(s). Choose one; Neural Ant will open it in a new tab.`;
+    status.textContent = `Found ${result.links.length} link(s). Choose the correct employer application page, then open it.`;
   } catch (error) {
     linksSelect.replaceChildren(new Option('Could not inspect this page', ''));
     status.textContent = error.message || 'Refresh the employer page and try again.';
@@ -47,7 +47,7 @@ openButton.addEventListener('click', async () => {
   openButton.disabled = true;
   try {
     await chrome.tabs.create({ url, active: true });
-    status.textContent = 'Application page opened. Review the page, then use Fill this application.';
+    status.textContent = 'Application page opened. Review it, then use Fill this application.';
   } catch (error) {
     status.textContent = error.message || 'Could not open that link.';
   } finally {

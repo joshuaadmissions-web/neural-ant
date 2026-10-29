@@ -10,7 +10,9 @@ Neural Ant is a single-user job-search assistant. It discovers roles from config
 - Do not invent candidate qualifications, employment dates, salary data, sponsorship policy, or job-posting facts.
 - Treat H-1B/LCA filing history as historical employer-level evidence only. It does not prove sponsorship for a specific job or future eligibility.
 - Do not submit job applications, send messages, accept legal terms, complete work-authorization attestations, or answer demographic questions on the candidate's behalf. Keep these actions under explicit user control.
-- Extension behavior should be user-initiated, limited to supported fields, avoid overwriting nonempty fields, and never click submit.
+- Browser RPA navigation must be user-initiated: show visible HTTPS apply links and let the user choose which one to open. Do not click page buttons or trigger navigation without the user's click.
+- Extension filling must be user-initiated, limited to supported empty fields, avoid overwriting populated fields, and never upload files or submit forms.
+- Leave work-authorization and sponsorship questions, legal attestations, demographic questions, and unverified role-specific answers to the user.
 - AI processing of resume/profile/job text must remain opt-in and clearly disclosed.
 - Keep local mode bound to loopback. Do not expose unauthenticated personal data endpoints to a network.
 - Use official employer career pages as preferred listing sources; show source links and checked dates. Mark uncertainty instead of presenting guesses as facts.
@@ -18,7 +20,7 @@ Neural Ant is a single-user job-search assistant. It discovers roles from config
 ## Project map
 - `api/`: FastAPI service and persistence
 - `src/`: web interface
-- `extension/`: Chrome extension
+- `extension/`: Chrome browser RPA assistant (link discovery and profile-based form fill)
 - `scripts/`: build tooling
 - `tests/`: automated checks (when present)
 
