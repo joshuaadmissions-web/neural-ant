@@ -16,6 +16,21 @@ Neural Ant is a single-user job-search application. It stores a resume and searc
 - Application pipeline and email alerts for new matching listings.
 - Authenticated scheduled-search endpoint so a hosted scheduler can run searches while your computer is off.
 
+## Product preview and free static hosting
+
+A static Neural Ant workflow preview is in [`site/`](site/). It shows the four stages—discover roles, review fit, prepare a resume draft, and use the supervised Chrome assistant. It is a demonstration page only; it does not connect to the app, search jobs, or collect a resume.
+
+To publish this preview for free with Cloudflare Pages:
+
+1. In Cloudflare, open **Workers & Pages → Create → Pages → Connect to Git** and connect this repository.
+2. Select the `main` branch.
+3. Set **Root directory** to `site`, leave **Build command** empty, and set **Build output directory** to `.`.
+4. Deploy. Pages gives you a public `pages.dev` URL and redeploys when you push changes to `main`.
+
+Cloudflare currently lists a Free Pages allowance of 500 builds per month, up to 20,000 files per site, and 25 MiB per file. Check [current Pages limits](https://developers.cloudflare.com/pages/platform/limits/) before relying on the quotas.
+
+This is static hosting only. It does not host Neural Ant's FastAPI API, database, resume files, or scheduled search. The complete app needs a private backend and persistent storage; see the cloud deployment section below. Keep resumes, profile exports, credentials, and private configuration out of `site/` and Git. See [site deployment notes](site/README.md).
+
 Neural Ant does not submit job applications or complete employer attestations. Keep every answer truthful and review tailored documents yourself.
 
 ## Run locally on your Mac

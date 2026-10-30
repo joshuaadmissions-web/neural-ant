@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101912">
+  <meta name="description" content="Neural Ant is a private job-search workspace for finding, reviewing, and preparing applications with a supervised browser assistant.">
+  <title>Neural Ant — A clearer path from search to application</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="Neural Ant home"><span class="brand-mark"><i></i><i></i><i></i></span><span>NEURAL <b>ANT</b></span></a>
+    <nav aria-label="Main navigation">
+      <a href="#workflow">Workflow</a>
+      <a href="#principles">Built for control</a>
+      <a href="#setup">Run it yourself</a>
+    </nav>
+    <a class="nav-cta" href="#workflow">Explore the flow <span>↗</span></a>
+  </header>
+
+  <main>
+    <section class="hero wrap">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="pulse"></span> YOUR PERSONAL JOB-SEARCH STUDIO</p>
+        <h1>Make the search<br>feel <em>less like work.</em></h1>
+        <p class="lead">Neural Ant brings role discovery, fit review, resume preparation, and browser assistance into one thoughtful workflow.</p>
+        <div class="hero-actions">
+          <a class="button primary" href="#workflow">See how it works <span>↓</span></a>
+          <a class="quiet-link" href="#setup">Run Neural Ant locally <span>↗</span></a>
+        </div>
+        <div class="hero-note"><span class="lock">✳</span> Your resume stays in your own Neural Ant workspace. This public preview contains no candidate data.</div>
+      </div>
+
+      <div class="hero-visual" aria-label="Illustration of the four Neural Ant workflow stages">
+        <div class="orbit orbit-a"></div><div class="orbit orbit-b"></div>
+        <div class="visual-tag"><span class="status-dot"></span> WORKFLOW / 04 STAGES</div>
+        <div class="flow-stack">
+          <div class="flow-node node-one"><span class="node-icon">⌕</span><div><small>01 / DISCOVER</small><strong>Configured career boards</strong></div><b class="node-check">✓</b></div>
+          <div class="flow-connector"><i></i></div>
+          <div class="flow-node node-two"><span class="node-icon">◈</span><div><small>02 / REVIEW</small><strong>Fit, salary, location</strong></div><b class="node-check">✓</b></div>
+          <div class="flow-connector"><i></i></div>
+          <div class="flow-node node-three"><span class="node-icon">✎</span><div><small>03 / PREPARE</small><strong>Resume draft for review</strong></div><b class="node-check">✓</b></div>
+          <div class="flow-connector"><i></i></div>
+          <div class="flow-node node-four"><span class="node-icon">↗</span><div><small>04 / ASSIST</small><strong>Fill, review, submit yourself</strong></div><span class="live-pill">YOU IN CONTROL</span></div>
+        </div>
+        <div class="visual-caption"><span>NO AUTO-SUBMISSIONS</span><span>LOCAL-FIRST PROFILE</span></div>
+      </div>
+      <div class="hero-index">NA—01 <span>PERSONAL CAREER SYSTEMS</span></div>
+    </section>
+
+    <section class="workflow-section" id="workflow">
+      <div class="wrap">
+        <div class="section-heading">
+          <div><p class="eyebrow">A SMALLER, CLEARER LOOP</p><h2>One search.<br><em>Four deliberate stages.</em></h2></div>
+          <p class="section-intro">Choose a stage to see what Neural Ant handles and where you stay in charge.</p>
+        </div>
+        <div class="workflow-grid">
+          <div class="stage-list" role="tablist" aria-label="Neural Ant workflow stages">
+            <button class="stage-tab active" id="tab-discover" role="tab" aria-selected="true" aria-controls="stage-panel" data-stage="discover"><span>01</span><b>Discover</b><small>Search configured boards</small><i>↗</i></button>
+            <button class="stage-tab" id="tab-review" role="tab" aria-selected="false" aria-controls="stage-panel" data-stage="review"><span>02</span><b>Review fit</b><small>Inspect evidence and match</small><i>↗</i></button>
+            <button class="stage-tab" id="tab-prepare" role="tab" aria-selected="false" aria-controls="stage-panel" data-stage="prepare"><span>03</span><b>Prepare</b><small>Create a reviewable draft</small><i>↗</i></button>
+            <button class="stage-tab" id="tab-assist" role="tab" aria-selected="false" aria-controls="stage-panel" data-stage="assist"><span>04</span><b>Assist</b><small>Navigate and fill with Chrome</small><i>↗</i></button>
+          </div>
+          <article class="stage-panel" id="stage-panel" role="tabpanel" aria-labelledby="tab-discover" tabindex="0">
+            <div class="panel-top"><span class="panel-kicker" id="stage-kicker">STAGE 01 / DISCOVER</span><span class="panel-mark">NA<span>•</span></span></div>
+            <h3 id="stage-title">Start with roles<br>from your sources.</h3>
+            <p id="stage-copy">Connect public Greenhouse, Lever, and Ashby career boards. Neural Ant searches those configured sources and puts matching roles in your workspace.</p>
+            <div class="panel-divider"></div>
+            <div class="panel-foot"><span id="stage-detail">Sources: boards you select</span><span class="mini-arrow">↗</span></div>
+          </article>
+        </div>
+        <p class="scope-note"><span>NOTE</span> This preview explains the product flow. It does not run a live search or connect to your resume.</p>
+      </div>
+    </section>
+
+    <section class="principles-section" id="principles">
+      <div class="wrap">
+        <div class="section-heading compact">
+          <div><p class="eyebrow">DESIGNED AROUND YOUR DECISIONS</p><h2>Automation that knows<br><em>where to stop.</em></h2></div>
+          <p class="section-intro">The repetitive work gets easier. Your facts and choices remain yours.</p>
+        </div>
+        <div class="principle-grid">
+          <article class="principle-card"><span class="principle-number">A / 01</span><div class="principle-icon">⌁</div><h3>Evidence before claims</h3><p>Job status, pay, experience, and sponsorship are presented with sources and uncertainty called out.</p></article>
+          <article class="principle-card"><span class="principle-number">A / 02</span><div class="principle-icon">▤</div><h3>Drafts stay reviewable</h3><p>Resume edits are drafts. Check every achievement and detail against your real experience.</p></article>
+          <article class="principle-card"><span class="principle-number">A / 03</span><div class="principle-icon">◉</div><h3>You make the final call</h3><p>The browser helper fills supported empty fields. You handle attestations, attach the file, and submit.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="setup-section" id="setup">
+      <div class="wrap setup-card">
+        <div class="setup-copy"><p class="eyebrow">PRIVATE BY DEFAULT</p><h2>Try the real workspace<br><em>on your own machine.</em></h2><p>The complete Neural Ant app currently runs locally. Your profile and resume belong in that private app, not in this public preview.</p><a class="button primary" href="https://github.com/joshuaadmissions-web/neural-ant">Open the source on GitHub <span>↗</span></a></div>
+        <div class="setup-steps">
+          <div><span>01</span><p>Clone or download the repository</p><b>→</b></div>
+          <div><span>02</span><p>Run <code>bash run-local.sh</code></p><b>→</b></div>
+          <div><span>03</span><p>Open <code>127.0.0.1:8080</code> and upload your resume privately</p><b>✓</b></div>
+          <small>Keep the local server running while you use Neural Ant’s Chrome extension.</small>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer wrap"><a class="brand" href="#"><span class="brand-mark"><i></i><i></i><i></i></span><span>NEURAL <b>ANT</b></span></a><p>Made for a calmer, more deliberate search.</p><div><a href="#workflow">Workflow</a><a href="https://github.com/joshuaadmissions-web/neural-ant">GitHub ↗</a></div></footer>
+</body>
+</html>
