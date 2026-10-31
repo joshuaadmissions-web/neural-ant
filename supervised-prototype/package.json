@@ -1,0 +1,1 @@
+{"name":"neural-ant-private","version":"0.1.0","private":true,"type":"module","scripts":{"start":"node server.mjs","test":"node --test tests/*.test.mjs","test:browser":"node tests/browser.mjs","check:live":"node tests/live.mjs"},"devDependencies":{"playwright":"^1.56.1"},"dependencies":{"pdfjs-dist":"^5.4.296","mammoth":"^1.11.0"}}

@@ -1,0 +1,20 @@
+
+> neural-ant-private@0.1.0 test
+> node --test tests/*.test.mjs
+
+✔ Only confirmed profile drives fit and tailoring never creates facts (2.559375ms)
+✔ Salary requires annual base evidence and lower bound >=100k (0.166458ms)
+✔ No sponsorship is excluded, uncertainty is retained (0.211584ms)
+✔ Unknown salary never becomes a qualifying match; senior gap shown (0.111125ms)
+✔ Source URLs are constrained, normalization retains source evidence (0.162625ms)
+✔ Extension profile rejects unknown fields, credentials and unsafe URLs (0.257833ms)
+✔ Draft keys remove tracking and never support arbitrary hosts or accounts (0.128125ms)
+✔ Skill matching avoids substring inventions (0.070375ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 41.390791

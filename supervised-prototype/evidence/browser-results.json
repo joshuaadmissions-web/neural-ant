@@ -1,0 +1,19 @@
+{
+  "runAt": "2026-10-31T17:35:45.558Z",
+  "passed": [
+    "TXT upload, correction, confirmation gate, original byte preservation",
+    "Fixture discovery, no-sponsorship exclusion, fit evidence, tailored change review and review gate",
+    "Export includes contact allowlist only",
+    "Extension Fill preserves existing email and sensitive answers, skips deceptive labels, legal fieldsets, uploads, and consent",
+    "Saved draft storage contains only eligible contact answers; no sensitive values or tokens",
+    "Browser profile restart retains draft, return link and status; Restore only fills empty eligible fields",
+    "Delete local extension data clears profile and drafts",
+    "No app browser JavaScript errors",
+    "Cross-origin mutation and DNS-rebinding Host protections reject requests",
+    "Local PDF and DOCX extraction, exact original preservation, confirmation and draft invalidation on new upload"
+  ],
+  "limitations": [
+    "Synthetic controlled form only; live employer forms not validated.",
+    "Test extension copy grants localhost host access and targets test tab to replace toolbar gesture. Shipped activeTab toolbar gesture needs manual Chrome check."
+  ]
+}

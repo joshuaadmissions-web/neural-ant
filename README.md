@@ -4,6 +4,22 @@
 
 Neural Ant is a single-user job-search application. It stores a resume and search profile in a private database, searches configured public employer career boards, ranks roles against your preferences, tracks applications, prepares resume drafts, and can email new-match alerts.
 
+## Supervised prototype — local testing
+
+The delivered, controlled-form-tested prototype is in [supervised-prototype/](supervised-prototype/README.md), including its Chrome extension, tests, and evidence. It is a separate local Node app with its own storage; it does not share profiles or drafts with the Python app described below.
+
+Requires **Node.js 22.13+**. From the repository root:
+
+```sh
+cd supervised-prototype
+npm ci
+npm start
+```
+
+Open **http://127.0.0.1:4317**. Load **supervised-prototype/extension/** in Chrome's `chrome://extensions` → Developer mode → Load unpacked. Use this extension for the prototype and disable the other Neural Ant extension during testing.
+
+See the [setup and supported-fields guide](supervised-prototype/README.md) and [delivery/test report](supervised-prototype/delivery/report.md). The recorded validation passed 8 unit tests and 10 controlled-browser acceptance groups; live employer forms and the production toolbar permission gesture still require manual verification. Applications remain under your manual review and submission.
+
 ## Current capabilities
 
 - Local single-user workspace opens directly without a sign-in screen; production mode retains password protection.

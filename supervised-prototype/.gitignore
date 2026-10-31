@@ -1,0 +1,11 @@
+node_modules/
+.private/
+.env*
+*.log
+playwright-report/
+test-results/
+.paperclip/
+delivery/*.zip
+# Only these synthetic test documents belong in version control.
+!tests/fixtures/synthetic.pdf
+!tests/fixtures/synthetic.docx

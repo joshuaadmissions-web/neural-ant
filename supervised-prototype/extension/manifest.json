@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Neural Ant \u00b7 Supervised Prep",
+  "version": "0.1.0",
+  "description": "Explicitly fill and locally save allowlisted empty contact fields. Never submits.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Neural Ant"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}
