@@ -167,7 +167,7 @@ DEFAULT_PROFILE: dict[str, Any] = {
     "city": "",
     "state": "",
     "postal_code": "",
-    "country": "United States",
+    "country": "",
     "current_company": "",
     "role": "",
     "linkedin_url": "",
@@ -200,13 +200,6 @@ DEFAULT_PROFILE: dict[str, Any] = {
 SUPPORTED_ATS = {"greenhouse", "lever", "ashby"}
 STAGES = {"Shortlist", "Applied", "Interview", "Decision", "Archived"}
 SENSITIVE_HEADERS = {"host", "x-forwarded-host"}
-RESUME_REQUIREMENT_CATALOG = (
-    "Python", "Java", "TypeScript", "JavaScript", "SQL", "AWS", "Azure", "GCP", "Docker", "Kubernetes",
-    "Terraform", "FastAPI", "React", "Machine Learning", "LLM", "RAG", "NLP", "PyTorch", "TensorFlow",
-    "LangChain", "LangGraph", "Bedrock", "OpenAI", "PostgreSQL", "MongoDB", "MLOps", "CI/CD",
-    "agent", "agents", "tool calling", "function calling", "structured output", "evaluation", "observability",
-    "retrieval", "prompting", "async", "REST API", "microservices", "streaming", "fine tuning",
-)
 try:
     SEARCH_INTERVAL_SECONDS = int(os.getenv("SEARCH_INTERVAL_SECONDS", "60" if APP_ENV == "development" else "0"))
 except ValueError:
@@ -291,21 +284,150 @@ def extract_resume_text(filename: str, data: bytes) -> str:
     raise HTTPException(status_code=415, detail="Upload a PDF or DOCX resume.")
 
 
+MONTH_YEAR = r"(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+20\d{2}"
+DATE_RANGE_RE = re.compile(
+    rf"^(?P<label>.+?)\s+(?P<start>{MONTH_YEAR})\s*[–—-]\s*(?P<end>Present|Current|{MONTH_YEAR})$",
+    re.I,
+)
+
+
+def _resume_lines(text: str) -> list[str]:
+    return [
+        re.sub(r"^[•·▪◦–—-]\s*", "", line.strip()).strip()
+        for line in text.splitlines()
+        if line.strip()
+    ]
+
+
+def _section(lines: list[str], heading: str, endings: tuple[str, ...]) -> list[str]:
+    try:
+        start = next(index for index, line in enumerate(lines) if line.casefold() == heading.casefold()) + 1
+    except StopIteration:
+        return []
+    end = len(lines)
+    for index in range(start, len(lines)):
+        if lines[index].casefold() in {item.casefold() for item in endings}:
+            end = index
+            break
+    return lines[start:end]
+
+
+def _split_company_location(value: str) -> tuple[str, str]:
+    match = re.search(r"(?P<location>[A-Za-z .'-]+,\s*(?:[A-Z]{2}|India|Canada|United States))$", value.strip())
+    if not match:
+        return value.strip(), ""
+    company = value[:match.start()].strip(" ,")
+    return company or value.strip(), match.group("location").strip()
+
+
+def _parse_experience(lines: list[str]) -> list[dict[str, Any]]:
+    date_indexes = [(index, DATE_RANGE_RE.match(line)) for index, line in enumerate(lines)]
+    date_indexes = [(index, match) for index, match in date_indexes if match]
+    records: list[dict[str, Any]] = []
+    for position, (date_index, match) in enumerate(date_indexes):
+        next_date_index = date_indexes[position + 1][0] if position + 1 < len(date_indexes) else len(lines)
+        company_line = lines[date_index - 1] if date_index else ""
+        company, location = _split_company_location(company_line)
+        highlights = [line for line in lines[date_index + 1 : max(date_index + 1, next_date_index - 1)] if len(line) > 18]
+        records.append({
+            "company": company,
+            "title": match.group("label").strip(),
+            "start_date": match.group("start").strip(),
+            "end_date": match.group("end").strip(),
+            "location": location,
+            "highlights": " ".join(highlights),
+        })
+    return [record for record in records if record["company"] and record["title"]]
+
+
+def _parse_education(lines: list[str]) -> list[dict[str, Any]]:
+    date_indexes = [(index, DATE_RANGE_RE.match(line)) for index, line in enumerate(lines)]
+    date_indexes = [(index, match) for index, match in date_indexes if match]
+    records: list[dict[str, Any]] = []
+    for date_index, match in date_indexes:
+        school_line = lines[date_index - 1] if date_index else ""
+        school, location = _split_company_location(school_line)
+        degree = re.sub(r"\s*;\s*GPA:.*$", "", match.group("label"), flags=re.I).strip()
+        field = ""
+        field_match = re.search(r"\s+in\s+(.+)$", degree, re.I)
+        if field_match:
+            field = field_match.group(1).strip()
+            degree = degree[: field_match.start()].strip()
+        records.append({
+            "school": school,
+            "degree": degree,
+            "field": field,
+            "start_date": match.group("start").strip(),
+            "end_date": match.group("end").strip(),
+            "location": location,
+        })
+    return [record for record in records if record["school"] and record["degree"]]
+
+
 def extract_profile(text: str) -> dict[str, Any]:
-    lines = [line.strip(" •\t-") for line in text.splitlines() if line.strip()]
+    lines = _resume_lines(text)
+    header = "\n".join(lines[:8])
     name = ""
     for line in lines[:8]:
         if 2 <= len(line) <= 72 and not re.search(r"@|https?://|\d{3}|resume|curriculum vitae", line, re.I):
             name = line
             break
     email_match = re.search(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", text, re.I)
+    phone_match = re.search(r"(?:\+?1[\s.-]*)?(?:\(?\d{3}\)?[\s.-]*)\d{3}[\s.-]*\d{4}", header)
+    location_match = re.search(r"(?P<city>[A-Za-z][A-Za-z .'-]+),\s*(?P<state>[A-Z]{2})\b", header)
+    postal_match = re.search(r"\b\d{5}(?:-\d{4})?\b", header)
+    address_line1 = ""
+    for line in lines[:8]:
+        candidate = line.split("|")[0].strip()
+        if re.search(r"\b\d{1,6}\s+[A-Za-z0-9 .'-]+\s+(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Drive|Dr|Lane|Ln|Court|Ct|Way)\b", candidate, re.I):
+            address_line1 = candidate
+            break
+    linkedin_match = re.search(
+        r"(?:https?://)?(?:www\.)?linkedin\.com/in/(?P<slug>[A-Za-z0-9_-]+(?:\s*-\s*[A-Za-z0-9_-]+)?)",
+        header,
+        re.I,
+    )
+    linkedin_url = ""
+    if linkedin_match:
+        slug = re.sub(r"\s+", "", linkedin_match.group("slug"))
+        linkedin_url = f"https://linkedin.com/in/{slug}"
+
     skill_catalog = [
-        "Python", "Java", "TypeScript", "JavaScript", "SQL", "AWS", "Azure", "GCP", "Docker", "Kubernetes",
-        "Terraform", "FastAPI", "React", "Machine Learning", "LLM", "RAG", "NLP", "PyTorch", "TensorFlow",
-        "LangChain", "Bedrock", "OpenAI", "PostgreSQL", "MongoDB", "MLOps", "CI/CD",
+        "Python", "SQL", "RESTful API Design", "Microservices", "Terraform", "LLMs", "BERT", "Model Observability",
+        "Feature Engineering", "Scikit-learn", "PyTorch", "AWS", "AWS Lambda", "ECS", "S3", "API Gateway", "Azure",
+        "Azure DevOps", "Docker", "Kubernetes", "RabbitMQ", "Kafka", "Spark Streaming", "Redis", "ActiveMQ",
+        "GitHub Actions", "GitLab", "Agile/Scrum", "FHIR Interoperability", ".NET Core", "ASP.NET Core", "Spring Boot",
+        "Boto3", "OpenSearch", "Pandas", "MLOps", "Machine Learning", "NLP", "CI/CD", "RAG", "LLM", "OpenAI",
+        "FastAPI", "React", "PostgreSQL", "MongoDB", "LangChain", "Bedrock", "TensorFlow", "Java", "TypeScript",
+        "JavaScript", "GCP", "Model Lifecycle", "NLP fine-tuning",
     ]
-    skills = [skill for skill in skill_catalog if re.search(r"\b" + re.escape(skill) + r"\b", text, re.I)]
-    return {"name": name, "email": email_match.group(0) if email_match else "", "skills": skills}
+    normalized_text = re.sub(r"\s+", " ", text.casefold())
+    skills = [skill for skill in skill_catalog if re.search(rf"(?<![a-z0-9]){re.escape(skill.casefold())}(?![a-z0-9])", normalized_text)]
+    experience = _parse_experience(_section(lines, "Experience", ("Projects", "Education", "Skills")))
+    education_history = _parse_education(_section(lines, "Education", ("Skills", "Experience", "Projects")))
+    location = f"{location_match.group('city')}, {location_match.group('state')}" if location_match else ""
+    profile: dict[str, Any] = {
+        "name": name,
+        "email": email_match.group(0) if email_match else "",
+        "phone": phone_match.group(0).strip() if phone_match else "",
+        "location": location,
+        "address_line1": address_line1,
+        "city": location_match.group("city").strip() if location_match else "",
+        "state": location_match.group("state").strip() if location_match else "",
+        "postal_code": postal_match.group(0) if postal_match else "",
+        "country": "United States" if re.search(r"\b(?:United States|USA|U\.S\.A?\.)\b", header, re.I) else "",
+        "linkedin_url": linkedin_url,
+        "skills": skills,
+        "employment_history": experience,
+        "education_history": education_history,
+    }
+    if experience:
+        profile["current_company"] = experience[0]["company"]
+        profile["role"] = experience[0]["title"]
+    if education_history:
+        first = education_history[0]
+        profile["education"] = " ".join(part for part in (first["degree"], first["field"], first["school"]) if part)
+    return profile
 
 
 def put_resume_file(file_key: str, filename: str, data: bytes) -> str:
@@ -626,48 +748,10 @@ def run_search(db: Session) -> dict[str, Any]:
     return result
 
 
-def _term_in_text(term: str, text: str) -> bool:
-    normalized_text = re.sub(r"[^a-z0-9+#.]+", " ", text.lower())
-    normalized_term = re.sub(r"[^a-z0-9+#.]+", " ", term.lower()).strip()
-    return bool(normalized_term) and f" {normalized_term} " in f" {normalized_text} "
-
-
-def resume_fit_metrics(job: JobRow, profile: dict[str, Any], source_text: str, draft_content: str | None) -> dict[str, Any]:
-    job_text = f"{job.title} {job.description}"
-    confirmed_skills = [str(item).strip() for item in profile.get("skills", []) if str(item).strip()]
-    candidates = list(dict.fromkeys((*RESUME_REQUIREMENT_CATALOG, *confirmed_skills)))
-    requirements = [term for term in candidates if _term_in_text(term, job_text)]
-    if not requirements:
-        return {"before": None, "after": None, "delta": None, "basis": "No comparable requirements found."}
-
-    before_hits = [term for term in requirements if _term_in_text(term, source_text)]
-    before = round(100 * len(before_hits) / len(requirements))
-    after = None
-    delta = None
-    if draft_content is not None:
-        verified_profile_text = " ".join([
-            " ".join(confirmed_skills),
-            str(profile.get("summary") or ""),
-            str(profile.get("role") or ""),
-            " ".join(str(item.get("highlights") or "") for item in profile.get("employment_history", []) if isinstance(item, dict)),
-        ])
-        after_hits = [term for term in requirements if _term_in_text(term, f"{draft_content} {verified_profile_text}")]
-        after = round(100 * len(after_hits) / len(requirements))
-        delta = after - before
-    return {
-        "before": before,
-        "after": after,
-        "delta": delta,
-        "requirements_total": len(requirements),
-        "requirements_found_before": len(before_hits),
-    }
-
-
-def serialize_application(item: ApplicationRow, resume_fit: dict[str, Any] | None = None) -> dict[str, Any]:
+def serialize_application(item: ApplicationRow) -> dict[str, Any]:
     return {
         "id": item.id, "stage": item.stage, "notes": item.notes, "created_at": now_iso(item.created_at),
         "job": public_job_payload(item.job),
-        "resume_fit": resume_fit or {"before": None, "after": None, "delta": None},
     }
 
 
@@ -909,13 +993,19 @@ async def upload_resume(file: UploadFile = File(...), _: None = Depends(require_
     extracted = extract_profile(text)
     profile_row = ensure_profile(db)
     profile_data = {**DEFAULT_PROFILE, **(profile_row.data or {})}
-    for key in ("name", "email", "skills"):
-        if extracted.get(key) and not profile_data.get(key):
+    extracted_keys = (
+        "name", "email", "phone", "location", "address_line1", "city", "state", "postal_code", "country", "linkedin_url", "skills",
+        "current_company", "role", "education", "employment_history", "education_history",
+    )
+    for key in extracted_keys:
+        if key == "skills" and extracted.get(key):
+            profile_data[key] = list(dict.fromkeys([*(profile_data.get(key) or []), *extracted[key]]))
+        elif extracted.get(key) and not profile_data.get(key):
             profile_data[key] = extracted[key]
     profile_row.data = profile_data
     refresh_job_scores(db, profile_data)
     db.commit()
-    return {"filename": filename, "characters_extracted": len(text), "extracted_fields": extracted, "message": "Resume stored privately. Review extracted name, email, and skills in My profile before using them."}
+    return {"filename": filename, "characters_extracted": len(text), "extracted_fields": extracted, "message": "Resume stored privately. Profile fields are filled only when the uploaded resume contains that information; review them in My profile before use."}
 
 
 @app.delete("/api/resume")
@@ -1123,14 +1213,7 @@ def create_application(body: ApplicationBody, _: None = Depends(require_auth), d
 @app.get("/api/applications")
 def list_applications(_: None = Depends(require_auth), db: Session = Depends(get_db)):
     rows = db.scalars(select(ApplicationRow).order_by(ApplicationRow.updated_at.desc())).all()
-    resume = db.get(ResumeRow, 1)
-    profile = ensure_profile(db).data or DEFAULT_PROFILE
-    source_text = resume.extracted_text if resume else ""
-    payload = []
-    for row in rows:
-        draft = db.scalars(select(DraftRow).where(DraftRow.job_id == row.job_id).order_by(DraftRow.created_at.desc())).first()
-        payload.append(serialize_application(row, resume_fit_metrics(row.job, profile, source_text, draft.content if draft else None)))
-    return payload
+    return [serialize_application(row) for row in rows]
 
 
 @app.get("/api/applications/{application_id}/resume")

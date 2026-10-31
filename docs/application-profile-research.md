@@ -42,7 +42,6 @@ Dates, employers, titles, skills, and achievements must come from the user's ver
 - Prefer specific action plus result plus scope/metric when the user has a verified metric. Never manufacture a metric.
 - Keep a role-specific resume variant and a local draft history so the user can see what changed.
 - The application tracker can download a plain, ATS-friendly DOCX named `Company_Role_Name_Resume.docx`. It uses standard headings, readable typography, and simple paragraphs/bullets; the user must review the facts and wording before upload.
-- The tracker also shows `before → after` resume-match coverage and the point delta. This is evidence coverage against detected posting requirements, not a hiring or interview prediction.
 - Treat fit scores and LLM output as review aids, not hiring predictions or guarantees.
 - Do not optimize for demographic or other protected characteristics. Research shows that hiring systems can reproduce bias; the product should preserve truthful evidence and let the candidate control optional disclosures.
 
