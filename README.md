@@ -29,6 +29,7 @@ See the [setup and supported-fields guide](supervised-prototype/README.md) and [
 - Match ranking by target titles, skill overlap, salary, work mode, and location.
 - The Agent search dashboard filters to the saved profile threshold (50% minimum in the portal by default) and rescoring runs when the profile or resume changes. Direct HTTPS role links can also be imported for review.
 - Scheduled searches are intended to run daily or on another rate-limit-safe cadence through the authenticated scheduler endpoint; the app does not poll job boards every second.
+- Local development automatically checks configured boards every 60 seconds and refreshes the open Agent search page every 60 seconds. A board API may publish a role later than the employer's page, so this is frequent polling—not a guarantee of instant discovery.
 - Optional CSV import of employer-level H-1B/LCA historical evidence. Historical filings do not establish that a company will sponsor a specific role.
 - Reviewable resume drafts; optional external AI use requires a per-draft confirmation. The provider receives resume/profile/job text only after that confirmation.
 - Application pipeline and email alerts for new matching listings.
@@ -68,6 +69,8 @@ On the first run, the script installs dependencies, builds the interface, and cr
 Open [http://127.0.0.1:8080](http://127.0.0.1:8080), then upload your resume in **My profile**. Verify the extracted profile and add employer boards under **Agent search**. The dashboard shows roles at or above the saved match threshold, with a minimum display threshold of 50%. To stop Neural Ant, return to Terminal and press **Ctrl+C**. Run `bash run-local.sh` again whenever you want to start it.
 
 Local mode runs only while your Mac and the Terminal process are running. Searches will not run while the Mac is off or asleep. Your data stays on this Mac unless you explicitly configure an external AI provider; if you opt in to external AI drafting, resume and job text is sent to that provider.
+
+In local development, the automatic search interval defaults to 60 seconds. Set `SEARCH_INTERVAL_SECONDS` to a larger value in `.env.local` if a job board asks for a slower cadence. Hosted deployments should use the authenticated `/api/internal/run-search` scheduler endpoint instead of relying on an in-process loop.
 
 For manual setup, copy `.env.local.example` to `.env.local`, set unique secrets if using scheduled searches, then run the build and Uvicorn commands described in the Developer workflow section.
 

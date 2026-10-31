@@ -10,6 +10,7 @@ import os
 import re
 import secrets
 import smtplib
+from threading import Event, Thread
 import uuid
 from datetime import datetime, timezone
 from email.message import EmailMessage
@@ -177,6 +178,13 @@ DEFAULT_PROFILE: dict[str, Any] = {
 SUPPORTED_ATS = {"greenhouse", "lever", "ashby"}
 STAGES = {"Shortlist", "Applied", "Interview", "Decision", "Archived"}
 SENSITIVE_HEADERS = {"host", "x-forwarded-host"}
+try:
+    SEARCH_INTERVAL_SECONDS = int(os.getenv("SEARCH_INTERVAL_SECONDS", "60" if APP_ENV == "development" else "0"))
+except ValueError:
+    SEARCH_INTERVAL_SECONDS = 0
+SEARCH_INTERVAL_SECONDS = max(60, SEARCH_INTERVAL_SECONDS) if SEARCH_INTERVAL_SECONDS else 0
+_search_stop = Event()
+_search_thread: Thread | None = None
 
 
 def get_db() -> Iterator[Session]:
@@ -655,7 +663,35 @@ async def security_headers(request: Request, call_next):
 
 @app.on_event("startup")
 def initialize_database() -> None:
+    global _search_thread
     Base.metadata.create_all(bind=engine)
+    if SEARCH_INTERVAL_SECONDS and _search_thread is None:
+        _search_stop.clear()
+        _search_thread = Thread(target=automatic_search_loop, name="neural-ant-search", daemon=True)
+        _search_thread.start()
+        log.info("Automatic job search enabled every %s seconds", SEARCH_INTERVAL_SECONDS)
+
+
+def automatic_search_loop() -> None:
+    while not _search_stop.wait(SEARCH_INTERVAL_SECONDS):
+        db = SessionLocal()
+        try:
+            result = run_search(db)
+            log.info("Automatic job search checked %s sources, saw %s jobs, saved %s new jobs", result["sources_checked"], result["jobs_seen"], result["jobs_saved"])
+        except Exception:
+            log.exception("Automatic job search failed")
+        finally:
+            db.close()
+
+
+@app.on_event("shutdown")
+def stop_automatic_search() -> None:
+    global _search_thread
+    if _search_thread is None:
+        return
+    _search_stop.set()
+    _search_thread.join(timeout=5)
+    _search_thread = None
 
 
 @app.get("/api/health")
@@ -1099,6 +1135,7 @@ def status(_: None = Depends(require_auth), db: Session = Depends(get_db)):
         "ai_configured": bool(os.getenv("OPENAI_API_KEY") and os.getenv("OPENAI_MODEL")),
         "email_configured": bool(os.getenv("SMTP_HOST") and os.getenv("SMTP_FROM")),
         "scheduled_search_configured": bool(os.getenv("CRON_SECRET")),
+        "auto_search_interval_seconds": SEARCH_INTERVAL_SECONDS,
         "resume_storage": "private Google Cloud Storage bucket" if GCS_BUCKET else "private persistent volume",
     }
 
