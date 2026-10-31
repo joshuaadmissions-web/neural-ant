@@ -1,10 +1,11 @@
 {
   "manifest_version": 3,
   "name": "Neural Ant RPA Assistant",
-  "version": "0.4.1",
-  "description": "Find and open an employer application link, then fill supported fields from your local Neural Ant profile. You review and submit.",
+  "version": "0.5.0",
+  "description": "Find application links, fill supported fields, and locally save and restore application drafts for your review.",
   "permissions": [
-    "activeTab"
+    "activeTab",
+    "storage"
   ],
   "host_permissions": [
     "http://127.0.0.1:8080/*",
@@ -19,6 +20,7 @@
         "https://*/*"
       ],
       "js": [
+        "draft-storage.js",
         "content.js"
       ],
       "run_at": "document_idle"
