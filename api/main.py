@@ -21,7 +21,7 @@ from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 import httpx
 from docx import Document
 from fastapi import Depends, FastAPI, File, Header, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from pydantic import BaseModel, Field
@@ -29,6 +29,8 @@ from pypdf import PdfReader
 from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, create_engine, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
+
+from api.docx_export import build_resume_docx
 
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
@@ -373,6 +375,15 @@ def public_job_payload(job: JobRow) -> dict[str, Any]:
         "sponsorship_url": job.sponsorship_url,
         "first_seen": now_iso(job.first_seen),
     }
+
+
+def resume_filename(profile: dict[str, Any], job: JobRow) -> str:
+    def token(value: Any, fallback: str) -> str:
+        cleaned = re.sub(r"[^A-Za-z0-9]+", "_", str(value or "").strip()).strip("_")
+        return (cleaned[:80] or fallback)
+
+    candidate = profile.get("preferred_name") or profile.get("name") or "Candidate"
+    return f"{token(job.company_name, 'Company')}_{token(job.title, 'Role')}_{token(candidate, 'Candidate')}_Resume.docx"
 
 
 def parse_greenhouse(slug: str, company: str, client: httpx.Client) -> list[dict[str, Any]]:
@@ -1070,6 +1081,26 @@ def list_applications(_: None = Depends(require_auth), db: Session = Depends(get
     return [serialize_application(row) for row in rows]
 
 
+@app.get("/api/applications/{application_id}/resume")
+def download_application_resume(application_id: int, _: None = Depends(require_auth), db: Session = Depends(get_db)):
+    application = db.get(ApplicationRow, application_id)
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found.")
+    resume = db.get(ResumeRow, 1)
+    if not resume:
+        raise HTTPException(status_code=409, detail="Upload a resume first.")
+    profile = ensure_profile(db).data or DEFAULT_PROFILE
+    draft = db.scalars(select(DraftRow).where(DraftRow.job_id == application.job_id).order_by(DraftRow.created_at.desc())).first()
+    draft_content = draft.content if draft else deterministic_tailor(resume.extracted_text, application.job, profile)
+    content = build_resume_docx(profile, application.job, draft_content, resume.extracted_text)
+    filename = resume_filename(profile, application.job)
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @app.patch("/api/applications/{application_id}")
 def update_application(application_id: int, body: StageBody, _: None = Depends(require_auth), db: Session = Depends(get_db)):
     if body.stage not in STAGES:
@@ -1116,6 +1147,9 @@ JOB POSTING:
 Title: {job.title}
 Company: {job.company_name}
 Description: {job.description[:12000]}
+
+WRITING STYLE:
+Write in plain, human English. Use short sentences, common words, and direct verbs. Avoid inflated language, buzzwords, keyword stuffing, and claims that are not supported by the source resume. Keep technical terms only when they are relevant to the role. Use clear sections: Professional Summary, Core Skills, Professional Experience, and Education.
 
 SOURCE RESUME:
 {resume_text[:20000]}
