@@ -13,7 +13,7 @@
   };
   const identity = el => {
     const name = labelFor(el);
-    if (!name) return '';
+    if (!name || /work authorization|authorized to work|visa|sponsorship|immigration|social security|ssn|date of birth|gender|race|ethnicity|disability|veteran|criminal history|background check|signature|attest|legally eligible|require.*sponsor/i.test(name)) return '';
     const same = controls().filter(candidate => labelFor(candidate) === name);
     return name + '#' + same.indexOf(el);
   };
@@ -37,7 +37,11 @@
     restoring = true;
     try {
       const saved = (await chrome.storage.local.get(keyFor()))[keyFor()];
-      if (!saved || Date.now() - saved.updatedAt > 30 * 24 * 60 * 60 * 1000) return;
+      if (!saved) return;
+      if (Date.now() - saved.updatedAt > 30 * 24 * 60 * 60 * 1000) {
+        await chrome.storage.local.remove(keyFor());
+        return;
+      }
       const fields = controls();
       for (const [key, value] of Object.entries(saved.fields || {})) {
         const el = fields.find(candidate => identity(candidate) === key);
