@@ -15,6 +15,7 @@ Neural Ant is a single-user job-search application. It stores a resume and searc
 - Reviewable resume drafts; optional external AI use requires a per-draft confirmation. The provider receives resume/profile/job text only after that confirmation.
 - Application pipeline and email alerts for new matching listings.
 - Authenticated scheduled-search endpoint so a hosted scheduler can run searches while your computer is off.
+- Chrome extension prototype that saves visible application answers locally and restores them into empty fields when you reopen the same application page. Passwords and resume uploads are excluded; see [local draft behavior](docs/local-application-drafts.md).
 
 ## Product preview and free static hosting
 

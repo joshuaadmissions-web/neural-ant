@@ -69,3 +69,19 @@ fillButton.addEventListener('click', async () => {
     fillButton.disabled = false;
   }
 });
+
+const clearDraftsButton = document.getElementById('clearDrafts');
+clearDraftsButton.addEventListener('click', async () => {
+  clearDraftsButton.disabled = true;
+  status.textContent = 'Clearing saved drafts on this device…';
+  try {
+    const all = await chrome.storage.local.get(null);
+    const keys = Object.keys(all).filter(key => key.startsWith('naDraft:'));
+    if (keys.length) await chrome.storage.local.remove(keys);
+    status.textContent = keys.length ? 'Saved application drafts cleared from this device.' : 'No saved application drafts were found.';
+  } catch (error) {
+    status.textContent = error.message || 'Could not clear local drafts.';
+  } finally {
+    clearDraftsButton.disabled = false;
+  }
+});
