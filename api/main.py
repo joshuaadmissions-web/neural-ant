@@ -156,13 +156,33 @@ class AlertRow(Base):
 
 DEFAULT_PROFILE: dict[str, Any] = {
     "name": "",
+    "preferred_name": "",
     "email": "",
     "phone": "",
     "location": "",
+    "address_line1": "",
+    "address_line2": "",
+    "city": "",
+    "state": "",
+    "postal_code": "",
+    "country": "United States",
     "current_company": "",
     "role": "",
+    "linkedin_url": "",
+    "github_url": "",
+    "portfolio_url": "",
+    "website_url": "",
     "skills": [],
     "education": "",
+    "employment_history": [],
+    "education_history": [],
+    "certifications": [],
+    "languages": [],
+    "availability_date": "",
+    "notice_period": "",
+    "employment_type_preferences": [],
+    "relocation_preference": "",
+    "travel_preference": "",
     "target_titles": [],
     "location_preferences": ["United States"],
     "work_modes": ["Remote", "Hybrid", "On-site"],
@@ -748,23 +768,38 @@ def logout():
 def get_profile(_: None = Depends(require_auth), db: Session = Depends(get_db)):
     row = ensure_profile(db)
     resume = db.get(ResumeRow, 1)
-    return {"profile": row.data or DEFAULT_PROFILE, "resume": {"filename": resume.filename, "uploaded_at": now_iso(resume.uploaded_at)} if resume else None}
+    return {"profile": {**DEFAULT_PROFILE, **(row.data or {})}, "resume": {"filename": resume.filename, "uploaded_at": now_iso(resume.uploaded_at)} if resume else None}
 
 
 @app.get("/api/form-profile")
 def get_form_profile(_: None = Depends(require_auth), db: Session = Depends(get_db)):
     """Return only user-approved contact/profile fields for the local browser extension."""
     row = ensure_profile(db)
-    data = row.data or DEFAULT_PROFILE
+    data = {**DEFAULT_PROFILE, **(row.data or {})}
     return {
         "name": data.get("name", ""),
+        "preferred_name": data.get("preferred_name", ""),
         "email": data.get("email", ""),
         "phone": data.get("phone", ""),
         "location": data.get("location", ""),
+        "address_line1": data.get("address_line1", ""),
+        "address_line2": data.get("address_line2", ""),
+        "city": data.get("city", ""),
+        "state": data.get("state", ""),
+        "postal_code": data.get("postal_code", ""),
+        "country": data.get("country", ""),
         "current_company": data.get("current_company", ""),
         "current_role": data.get("role", ""),
+        "linkedin_url": data.get("linkedin_url", ""),
+        "github_url": data.get("github_url", ""),
+        "portfolio_url": data.get("portfolio_url", ""),
+        "website_url": data.get("website_url", ""),
         "years_experience": data.get("years_experience"),
         "skills": data.get("skills", []),
+        "employment_history": data.get("employment_history", []),
+        "education_history": data.get("education_history", []),
+        "certifications": data.get("certifications", []),
+        "languages": data.get("languages", []),
         "summary": data.get("summary", ""),
         "work_authorization": data.get("work_authorization", ""),
         "sponsorship_preferences": data.get("sponsorship_preferences", ""),

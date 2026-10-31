@@ -35,6 +35,7 @@ See the [setup and supported-fields guide](supervised-prototype/README.md) and [
 - Application pipeline and email alerts for new matching listings.
 - Authenticated scheduled-search endpoint so a hosted scheduler can run searches while your computer is off.
 - Chrome extension prototype that saves visible application answers locally and restores them into empty fields when you reopen the same application page. Passwords and resume uploads are excluded; see [local draft behavior](docs/local-application-drafts.md).
+- Reusable application-profile fields and the evidence-based [application profile and resume research](docs/application-profile-research.md). The extension still pauses for credentials, consent, legal/work-authorization, demographic, signature, and job-specific questions.
 
 ## Product preview and free static hosting
 

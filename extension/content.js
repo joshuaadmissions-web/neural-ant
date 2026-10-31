@@ -120,15 +120,32 @@
       element.dispatchEvent(new Event('change', { bubbles: true }));
     };
 
+    const firstEducation = Array.isArray(profile.education_history) ? (profile.education_history[0] || {}) : {};
+    const languageText = Array.isArray(profile.languages) ? profile.languages.map(item => [item.language, item.proficiency].filter(Boolean).join(' — ')).filter(Boolean).join(', ') : '';
     const textFields = [
-      ['name', profile.name, text => /(^| )full name( |$)|(^| )name( |$)|your name/.test(text) && !/first name|last name/.test(text)],
+      ['name', profile.name, text => /((^| )full name( |$)|(^| )name( |$)|your name)/.test(text) && !/first name|last name/.test(text)],
+      ['preferred name', profile.preferred_name, text => /preferred name|chosen name/.test(text)],
       ['first name', nameParts[0], text => /first name/.test(text)],
       ['last name', nameParts.length > 1 ? nameParts.slice(1).join(' ') : '', text => /last name|surname/.test(text)],
       ['email', profile.email, text => /email|e mail/.test(text)],
       ['phone', profile.phone, text => /phone|mobile|telephone/.test(text)],
       ['location', profile.location, text => /current location|city|location/.test(text)],
+      ['address line 1', profile.address_line1, text => /address line 1|street address|address(?! line 2)/.test(text)],
+      ['address line 2', profile.address_line2, text => /address line 2|apartment|suite|unit/.test(text)],
+      ['city', profile.city, text => /(^| )city( |$)/.test(text)],
+      ['state', profile.state, text => /state|province/.test(text) && !/authorized|work authorization|sponsorship/.test(text)],
+      ['postal code', profile.postal_code, text => /zip|postal code|post code/.test(text)],
+      ['country', profile.country, text => /country|nation/.test(text)],
       ['current company', profile.current_company, text => /current company|current employer/.test(text)],
       ['current role', profile.current_role, text => /current role|current title/.test(text)],
+      ['school', firstEducation.school, text => /school|university|college/.test(text)],
+      ['degree', firstEducation.degree, text => /degree|education level/.test(text)],
+      ['field of study', firstEducation.field, text => /field of study|major|discipline/.test(text)],
+      ['languages', languageText, text => /languages spoken|language proficiency|languages/.test(text)],
+      ['LinkedIn', profile.linkedin_url, text => /linkedin/.test(text)],
+      ['GitHub', profile.github_url, text => /github/.test(text)],
+      ['portfolio', profile.portfolio_url, text => /portfolio|personal website/.test(text)],
+      ['website', profile.website_url, text => /personal url|website|web site/.test(text)],
     ];
     for (const [name, value, matches] of textFields) {
       if (!String(value || '').trim()) continue;

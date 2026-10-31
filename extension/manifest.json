@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Neural Ant RPA Assistant",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Find application links, fill supported fields, and locally save and restore application drafts for your review.",
   "permissions": [
     "activeTab",
