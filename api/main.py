@@ -200,6 +200,13 @@ DEFAULT_PROFILE: dict[str, Any] = {
 SUPPORTED_ATS = {"greenhouse", "lever", "ashby"}
 STAGES = {"Shortlist", "Applied", "Interview", "Decision", "Archived"}
 SENSITIVE_HEADERS = {"host", "x-forwarded-host"}
+RESUME_REQUIREMENT_CATALOG = (
+    "Python", "Java", "TypeScript", "JavaScript", "SQL", "AWS", "Azure", "GCP", "Docker", "Kubernetes",
+    "Terraform", "FastAPI", "React", "Machine Learning", "LLM", "RAG", "NLP", "PyTorch", "TensorFlow",
+    "LangChain", "LangGraph", "Bedrock", "OpenAI", "PostgreSQL", "MongoDB", "MLOps", "CI/CD",
+    "agent", "agents", "tool calling", "function calling", "structured output", "evaluation", "observability",
+    "retrieval", "prompting", "async", "REST API", "microservices", "streaming", "fine tuning",
+)
 try:
     SEARCH_INTERVAL_SECONDS = int(os.getenv("SEARCH_INTERVAL_SECONDS", "60" if APP_ENV == "development" else "0"))
 except ValueError:
@@ -619,10 +626,48 @@ def run_search(db: Session) -> dict[str, Any]:
     return result
 
 
-def serialize_application(item: ApplicationRow) -> dict[str, Any]:
+def _term_in_text(term: str, text: str) -> bool:
+    normalized_text = re.sub(r"[^a-z0-9+#.]+", " ", text.lower())
+    normalized_term = re.sub(r"[^a-z0-9+#.]+", " ", term.lower()).strip()
+    return bool(normalized_term) and f" {normalized_term} " in f" {normalized_text} "
+
+
+def resume_fit_metrics(job: JobRow, profile: dict[str, Any], source_text: str, draft_content: str | None) -> dict[str, Any]:
+    job_text = f"{job.title} {job.description}"
+    confirmed_skills = [str(item).strip() for item in profile.get("skills", []) if str(item).strip()]
+    candidates = list(dict.fromkeys((*RESUME_REQUIREMENT_CATALOG, *confirmed_skills)))
+    requirements = [term for term in candidates if _term_in_text(term, job_text)]
+    if not requirements:
+        return {"before": None, "after": None, "delta": None, "basis": "No comparable requirements found."}
+
+    before_hits = [term for term in requirements if _term_in_text(term, source_text)]
+    before = round(100 * len(before_hits) / len(requirements))
+    after = None
+    delta = None
+    if draft_content is not None:
+        verified_profile_text = " ".join([
+            " ".join(confirmed_skills),
+            str(profile.get("summary") or ""),
+            str(profile.get("role") or ""),
+            " ".join(str(item.get("highlights") or "") for item in profile.get("employment_history", []) if isinstance(item, dict)),
+        ])
+        after_hits = [term for term in requirements if _term_in_text(term, f"{draft_content} {verified_profile_text}")]
+        after = round(100 * len(after_hits) / len(requirements))
+        delta = after - before
+    return {
+        "before": before,
+        "after": after,
+        "delta": delta,
+        "requirements_total": len(requirements),
+        "requirements_found_before": len(before_hits),
+    }
+
+
+def serialize_application(item: ApplicationRow, resume_fit: dict[str, Any] | None = None) -> dict[str, Any]:
     return {
         "id": item.id, "stage": item.stage, "notes": item.notes, "created_at": now_iso(item.created_at),
         "job": public_job_payload(item.job),
+        "resume_fit": resume_fit or {"before": None, "after": None, "delta": None},
     }
 
 
@@ -1078,7 +1123,14 @@ def create_application(body: ApplicationBody, _: None = Depends(require_auth), d
 @app.get("/api/applications")
 def list_applications(_: None = Depends(require_auth), db: Session = Depends(get_db)):
     rows = db.scalars(select(ApplicationRow).order_by(ApplicationRow.updated_at.desc())).all()
-    return [serialize_application(row) for row in rows]
+    resume = db.get(ResumeRow, 1)
+    profile = ensure_profile(db).data or DEFAULT_PROFILE
+    source_text = resume.extracted_text if resume else ""
+    payload = []
+    for row in rows:
+        draft = db.scalars(select(DraftRow).where(DraftRow.job_id == row.job_id).order_by(DraftRow.created_at.desc())).first()
+        payload.append(serialize_application(row, resume_fit_metrics(row.job, profile, source_text, draft.content if draft else None)))
+    return payload
 
 
 @app.get("/api/applications/{application_id}/resume")
@@ -1091,7 +1143,12 @@ def download_application_resume(application_id: int, _: None = Depends(require_a
         raise HTTPException(status_code=409, detail="Upload a resume first.")
     profile = ensure_profile(db).data or DEFAULT_PROFILE
     draft = db.scalars(select(DraftRow).where(DraftRow.job_id == application.job_id).order_by(DraftRow.created_at.desc())).first()
-    draft_content = draft.content if draft else deterministic_tailor(resume.extracted_text, application.job, profile)
+    if not draft:
+        draft = DraftRow(job_id=application.job_id, content=deterministic_tailor(resume.extracted_text, application.job, profile), model="local-match-draft")
+        db.add(draft)
+        db.commit()
+        db.refresh(draft)
+    draft_content = draft.content
     content = build_resume_docx(profile, application.job, draft_content, resume.extracted_text)
     filename = resume_filename(profile, application.job)
     return Response(
