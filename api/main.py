@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from email.message import EmailMessage
 from pathlib import Path
 from typing import Any, Iterator
-from urllib.parse import quote
+from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 import httpx
 from docx import Document
@@ -171,7 +171,7 @@ DEFAULT_PROFILE: dict[str, Any] = {
     "sponsorship_preferences": "",
     "summary": "",
     "email_alerts": False,
-    "match_threshold": 55,
+    "match_threshold": 50,
 }
 
 SUPPORTED_ATS = {"greenhouse", "lever", "ashby"}
@@ -209,6 +209,14 @@ def safe_json(value: Any) -> Any:
 
 def company_key(name: str) -> str:
     return re.sub(r"[^a-z0-9]", "", name.lower())
+
+
+def canonical_job_url(value: str) -> str:
+    parsed = urlsplit(value.strip())
+    tracking_keys = {"ref", "referrer", "source"}
+    query = [(key, val) for key, val in parse_qsl(parsed.query, keep_blank_values=True) if not key.lower().startswith("utm_") and key.lower() not in tracking_keys]
+    path = parsed.path.rstrip("/") or "/"
+    return urlunsplit((parsed.scheme.lower(), parsed.netloc.lower(), path, urlencode(query), ""))
 
 
 def parse_salary(text: str) -> tuple[int | None, int | None]:
@@ -450,6 +458,28 @@ def score_job(job: dict[str, Any], profile: dict[str, Any], sponsor: SponsorRow 
     return min(100, score), reasons, sponsor_status, sponsor_evidence, sponsor_url
 
 
+def refresh_job_scores(db: Session, profile: dict[str, Any]) -> None:
+    for job in db.scalars(select(JobRow)).all():
+        raw = {
+            "title": job.title,
+            "description": job.description,
+            "location": job.location,
+            "work_mode": job.work_mode,
+            "salary_text": job.salary_text,
+            "url": job.url,
+        }
+        fit, reasons, status, evidence, evidence_url = score_job(raw, profile, sponsor_for(db, job.company_name))
+        experience_note = re.search(r"Experience stated in supplied role notes:\s*(.+)", job.description or "")
+        if experience_note:
+            reasons.append(f"Role experience stated: {experience_note.group(1).splitlines()[0].strip()}")
+        job.fit_score = fit
+        job.fit_reasons = reasons
+        if job.source != "Manual":
+            job.sponsorship_status = status
+            job.sponsorship_evidence = evidence
+            job.sponsorship_url = evidence_url
+
+
 def send_email(to_address: str, subject: str, body: str) -> bool:
     host = os.getenv("SMTP_HOST", "").strip()
     sender = os.getenv("SMTP_FROM", "").strip()
@@ -501,7 +531,7 @@ def run_search(db: Session) -> dict[str, Any]:
                 result["source_errors"].append({"company": source.company_name, "source": source.ats_type, "error": exc.__class__.__name__})
                 continue
             for raw in rows:
-                url = str(raw.get("url", "")).strip()
+                url = canonical_job_url(str(raw.get("url", "")).strip())
                 title = str(raw.get("title", "")).strip()
                 if not url.startswith("https://") or not title:
                     continue
@@ -533,7 +563,7 @@ def run_search(db: Session) -> dict[str, Any]:
                     db.expunge(job)
                     continue
                 result["jobs_saved"] += 1
-                if fit >= int(profile.get("match_threshold") or 55):
+                if fit >= int(profile.get("match_threshold") or 50):
                     result["new_matches"] += 1
                     if profile.get("email_alerts") and profile.get("email"):
                         already_sent = db.scalar(select(AlertRow).where(AlertRow.job_url == url))
@@ -584,6 +614,22 @@ class StageBody(BaseModel):
 class TailorBody(BaseModel):
     confirmed_resume_use: bool = False
     use_external_ai: bool = False
+
+
+class ManualJobItem(BaseModel):
+    url: str = Field(min_length=1, max_length=2000)
+    company_name: str = Field(min_length=1, max_length=255)
+    title: str = Field(min_length=1, max_length=500)
+    location: str = Field(default="", max_length=500)
+    work_mode: str = Field(default="Unspecified", max_length=80)
+    salary_text: str = Field(default="Not stated", max_length=255)
+    experience_text: str = Field(default="", max_length=255)
+    sponsorship_note: str = Field(default="", max_length=2000)
+    description: str = Field(default="", max_length=12000)
+
+
+class ManualJobsBody(BaseModel):
+    jobs: list[ManualJobItem] = Field(min_length=1, max_length=50)
 
 
 app = FastAPI(title="Neural Ant", version="1.0.0", docs_url="/api/docs" if APP_ENV != "production" else None, redoc_url=None)
@@ -701,10 +747,11 @@ def save_profile(body: ProfileBody, _: None = Depends(require_auth), db: Session
         if key in values and not isinstance(values[key], list):
             values[key] = [part.strip() for part in str(values[key]).split(",") if part.strip()]
     if "match_threshold" in values:
-        values["match_threshold"] = max(0, min(100, int(values["match_threshold"])))
+        values["match_threshold"] = max(50, min(100, int(values["match_threshold"])))
     row = ensure_profile(db)
     row.data = {**DEFAULT_PROFILE, **(row.data or {}), **values}
     row.updated_at = datetime.now(timezone.utc)
+    refresh_job_scores(db, row.data)
     db.commit()
     return {"profile": row.data}
 
@@ -739,6 +786,7 @@ async def upload_resume(file: UploadFile = File(...), _: None = Depends(require_
         if extracted.get(key) and not profile_data.get(key):
             profile_data[key] = extracted[key]
     profile_row.data = profile_data
+    refresh_job_scores(db, profile_data)
     db.commit()
     return {"filename": filename, "characters_extracted": len(text), "extracted_fields": extracted, "message": "Resume stored privately. Review extracted name, email, and skills in My profile before using them."}
 
@@ -848,6 +896,86 @@ def scheduled_search(x_cron_secret: str | None = Header(default=None), db: Sessi
 def get_jobs(min_score: int = 0, _: None = Depends(require_auth), db: Session = Depends(get_db)):
     rows = db.scalars(select(JobRow).where(JobRow.fit_score >= max(0, min_score)).order_by(JobRow.fit_score.desc(), JobRow.first_seen.desc()).limit(300)).all()
     return [public_job_payload(row) for row in rows]
+
+
+@app.post("/api/jobs/manual")
+def import_manual_jobs(body: ManualJobsBody, _: None = Depends(require_auth), db: Session = Depends(get_db)):
+    """Import user-supplied postings for review and supervised application prep."""
+    profile = ensure_profile(db).data or DEFAULT_PROFILE
+    imported: list[dict[str, Any]] = []
+    updated = 0
+    for item in body.jobs:
+        url = canonical_job_url(item.url)
+        parsed = urlsplit(url)
+        if parsed.scheme != "https" or not parsed.netloc:
+            raise HTTPException(status_code=422, detail="Each role URL must be a valid HTTPS link.")
+        description_parts = [item.description.strip()]
+        if item.experience_text.strip():
+            description_parts.append(f"Experience stated in supplied role notes: {item.experience_text.strip()}")
+        description = "\n\n".join(part for part in description_parts if part)[:40000]
+        raw = {
+            "title": item.title.strip(),
+            "description": description,
+            "location": item.location.strip(),
+            "work_mode": item.work_mode.strip() or "Unspecified",
+            "salary_text": item.salary_text.strip() or "Not stated",
+            "url": url,
+        }
+        sponsor = sponsor_for(db, item.company_name.strip())
+        fit, reasons, status, evidence, evidence_url = score_job(raw, profile, sponsor)
+        if item.experience_text.strip():
+            reasons.append(f"Role experience stated: {item.experience_text.strip()}")
+        if item.sponsorship_note.strip():
+            evidence = (f"{evidence} " if evidence else "") + (
+                f"User-provided sponsorship context: {item.sponsorship_note.strip()} "
+                "Verify this against the official posting and employer."
+            )
+            evidence_url = url
+
+        existing = db.scalar(select(JobRow).where(JobRow.url == url))
+        if existing:
+            existing.company_name = item.company_name.strip()
+            existing.title = item.title.strip()
+            existing.location = item.location.strip()
+            existing.work_mode = item.work_mode.strip() or "Unspecified"
+            existing.salary_text = item.salary_text.strip() or "Not stated"
+            existing.salary_min, existing.salary_max = parse_salary(existing.salary_text)
+            existing.description = description
+            existing.source = "Manual"
+            existing.fit_score = fit
+            existing.fit_reasons = reasons
+            existing.sponsorship_status = status
+            existing.sponsorship_evidence = evidence
+            existing.sponsorship_url = evidence_url
+            existing.last_seen = datetime.now(timezone.utc)
+            updated += 1
+            imported.append(public_job_payload(existing))
+            continue
+
+        salary_min, salary_max = parse_salary(raw["salary_text"])
+        job = JobRow(
+            url=url,
+            company_name=item.company_name.strip(),
+            title=item.title.strip(),
+            source="Manual",
+            location=item.location.strip(),
+            work_mode=item.work_mode.strip() or "Unspecified",
+            salary_text=raw["salary_text"],
+            salary_min=salary_min,
+            salary_max=salary_max,
+            description=description,
+            posted_at="",
+            fit_score=fit,
+            fit_reasons=reasons,
+            sponsorship_status=status,
+            sponsorship_evidence=evidence,
+            sponsorship_url=evidence_url,
+        )
+        db.add(job)
+        db.flush()
+        imported.append(public_job_payload(job))
+    db.commit()
+    return {"imported": len(body.jobs) - updated, "updated": updated, "jobs": imported}
 
 
 @app.post("/api/applications")

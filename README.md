@@ -27,6 +27,8 @@ See the [setup and supported-fields guide](supervised-prototype/README.md) and [
 - Persistent PostgreSQL storage (SQLite for local development); resume files use a private volume or optional private Google Cloud Storage bucket.
 - Public job board search adapters for Greenhouse, Lever, and Ashby. You add employer board identifiers; this is not an all-platform aggregator.
 - Match ranking by target titles, skill overlap, salary, work mode, and location.
+- The Agent search dashboard filters to the saved profile threshold (50% minimum in the portal by default) and rescoring runs when the profile or resume changes. Direct HTTPS role links can also be imported for review.
+- Scheduled searches are intended to run daily or on another rate-limit-safe cadence through the authenticated scheduler endpoint; the app does not poll job boards every second.
 - Optional CSV import of employer-level H-1B/LCA historical evidence. Historical filings do not establish that a company will sponsor a specific role.
 - Reviewable resume drafts; optional external AI use requires a per-draft confirmation. The provider receives resume/profile/job text only after that confirmation.
 - Application pipeline and email alerts for new matching listings.
@@ -63,7 +65,7 @@ bash run-local.sh
 
 On the first run, the script installs dependencies, builds the interface, and creates a local SQLite database. The resume and database are stored in the local `data/` directory; `.gitignore` keeps that folder and local secrets out of Git.
 
-Open [http://127.0.0.1:8080](http://127.0.0.1:8080), then upload your resume in **My profile**. Verify the extracted profile and add employer boards under **Agent search**. To stop Neural Ant, return to Terminal and press **Ctrl+C**. Run `bash run-local.sh` again whenever you want to start it.
+Open [http://127.0.0.1:8080](http://127.0.0.1:8080), then upload your resume in **My profile**. Verify the extracted profile and add employer boards under **Agent search**. The dashboard shows roles at or above the saved match threshold, with a minimum display threshold of 50%. To stop Neural Ant, return to Terminal and press **Ctrl+C**. Run `bash run-local.sh` again whenever you want to start it.
 
 Local mode runs only while your Mac and the Terminal process are running. Searches will not run while the Mac is off or asleep. Your data stays on this Mac unless you explicitly configure an external AI provider; if you opt in to external AI drafting, resume and job text is sent to that provider.
 
