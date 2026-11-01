@@ -38,6 +38,7 @@ See the [setup and supported-fields guide](supervised-prototype/README.md) and [
 - Chrome extension prototype that saves visible application answers locally and restores them into empty fields when you reopen the same application page. Passwords and resume uploads are excluded; see [local draft behavior](docs/local-application-drafts.md).
 - Reusable application-profile fields and the evidence-based [application profile and resume research](docs/application-profile-research.md). The extension still pauses for credentials, consent, legal/work-authorization, demographic, signature, and job-specific questions.
 - Product-growth direction is documented in the [Instagram scale scan](docs/instagram-scale-scan.md); it is a curated public-account study, not an exhaustive Instagram crawl.
+- Multilingual creator research and the implemented profile-readiness/freshness improvements are documented in the [multilingual creator scan](docs/multilingual-creator-scan.md).
 
 ## Product preview and free static hosting
 

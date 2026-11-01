@@ -538,6 +538,7 @@ def public_job_payload(job: JobRow) -> dict[str, Any]:
         "sponsorship_evidence": job.sponsorship_evidence,
         "sponsorship_url": job.sponsorship_url,
         "first_seen": now_iso(job.first_seen),
+        "last_seen": now_iso(job.last_seen),
     }
 
 
