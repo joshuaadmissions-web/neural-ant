@@ -65,6 +65,48 @@
     }
   }
 
+  function configureSourceOptions() {
+    const select = $("sourceType");
+    const slug = $("sourceSlug");
+    if (!select || !slug) return;
+    const platformHeading = document.querySelector("#agents h2");
+    if (platformHeading) platformHeading.textContent = "Employer boards + public job APIs";
+    const additions = [
+      ["smartrecruiters", "SmartRecruiters public board"],
+      ["adzuna", "Adzuna API"],
+      ["usajobs", "USAJOBS API"],
+    ];
+    additions.forEach(([value, label]) => {
+      if (!select.querySelector(`option[value="${value}"]`)) select.insertAdjacentHTML("beforeend", `<option value="${value}">${label}</option>`);
+    });
+    const update = () => {
+      const descriptions = {
+        greenhouse: "Employer slug, for example acme.",
+        lever: "Employer slug, for example acme.",
+        ashby: "Employer slug, for example acme.",
+        smartrecruiters: "Company identifier from its SmartRecruiters URL, for example acme.",
+        adzuna: "Use country|query|location, for example us|agentic ai engineer|remote. Requires ADZUNA_APP_ID and ADZUNA_APP_KEY in .env.local.",
+        usajobs: "Use query|location, for example artificial intelligence|Washington DC. Requires USAJOBS_API_KEY and USAJOBS_USER_AGENT in .env.local.",
+      };
+      slug.placeholder = valueFor(select) === "adzuna" ? "us|agentic ai engineer|remote" : valueFor(select) === "usajobs" ? "artificial intelligence|Washington DC" : valueFor(select) === "smartrecruiters" ? "company-identifier" : "company-name";
+      let hint = slug.parentElement?.querySelector(".source-format-hint");
+      if (!hint && slug.parentElement) {
+        hint = document.createElement("small");
+        hint.className = "source-format-hint";
+        hint.style.color = "var(--muted)";
+        hint.style.fontSize = "10px";
+        slug.parentElement.appendChild(hint);
+      }
+      if (hint) hint.textContent = descriptions[valueFor(select)] || descriptions.greenhouse;
+    };
+    const valueFor = (element) => element.value;
+    if (!select.__growthSourceWrapped) {
+      select.addEventListener("change", update);
+      select.__growthSourceWrapped = true;
+    }
+    update();
+  }
+
   function wrapFunctions() {
     const originalProfile = window.loadProfile;
     if (typeof originalProfile === "function" && !originalProfile.__growthWrapped) {
@@ -114,6 +156,7 @@
 
   const timer = setInterval(() => {
     wrapFunctions();
+    configureSourceOptions();
     ensureStrengthCard();
     if (typeof window.loadProfile === "function" && typeof window.loadJobs === "function") clearInterval(timer);
   }, 50);

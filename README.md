@@ -25,9 +25,10 @@ See the [setup and supported-fields guide](supervised-prototype/README.md) and [
 - Local single-user workspace opens directly without a sign-in screen; production mode retains password protection.
 - PDF/DOCX resume upload and basic profile extraction. Confirm extracted details before use.
 - Persistent PostgreSQL storage (SQLite for local development); resume files use a private volume or optional private Google Cloud Storage bucket.
-- Public job board search adapters for Greenhouse, Lever, and Ashby. You add employer board identifiers; this is not an all-platform aggregator.
+- Public job-source adapters for Greenhouse, Lever, Ashby, SmartRecruiters, Adzuna, and USAJOBS. You add employer board identifiers or API query sources; this is not an all-platform aggregator.
 - Explainable match ranking by target titles, skill overlap, salary, work mode, location, employment type, and sponsorship signal. Each listing exposes the matched evidence and unknowns instead of presenting one opaque score. Listings also show verified employment-type signals such as Full-time, Contract, Contract-to-hire, C2C, W-2, and 1099; if the posting does not state one, the app shows `Not stated`. See the [matching research note](docs/matching-research.md).
 - The Agent search dashboard filters to the saved profile threshold (50% minimum in the portal by default) and rescoring runs when the profile or resume changes. Direct HTTPS role links can also be imported for review.
+- LinkedIn is not scraped or reverse-engineered. Its job APIs require approved partner access; see the [job-source API notes](docs/job-source-apis.md).
 - Scheduled searches are intended to run daily or on another rate-limit-safe cadence through the authenticated scheduler endpoint; the app does not poll job boards every second.
 - Local development automatically checks configured boards every 60 seconds and refreshes the open Agent search page every 60 seconds. A board API may publish a role later than the employer's page, so this is frequent polling—not a guarantee of instant discovery.
 - Optional CSV import of employer-level H-1B/LCA historical evidence. Historical filings do not establish that a company will sponsor a specific role.

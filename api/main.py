@@ -199,7 +199,7 @@ DEFAULT_PROFILE: dict[str, Any] = {
     "match_threshold": 50,
 }
 
-SUPPORTED_ATS = {"greenhouse", "lever", "ashby"}
+SUPPORTED_ATS = {"greenhouse", "lever", "ashby", "smartrecruiters", "adzuna", "usajobs"}
 STAGES = {"Shortlist", "Applied", "Interview", "Decision", "Archived"}
 SENSITIVE_HEADERS = {"host", "x-forwarded-host"}
 try:
@@ -603,6 +603,86 @@ def parse_ashby(slug: str, company: str, client: httpx.Client) -> list[dict[str,
     return output
 
 
+def parse_smartrecruiters(slug: str, company: str, client: httpx.Client) -> list[dict[str, Any]]:
+    response = client.get(f"https://api.smartrecruiters.com/v1/companies/{quote(slug)}/postings", params={"limit": 100, "offset": 0})
+    response.raise_for_status()
+    rows = response.json().get("content", [])
+    output = []
+    for row in rows:
+        location = row.get("location") or {}
+        location_text = ", ".join(str(part).strip() for part in (location.get("city"), location.get("region"), location.get("country")) if str(part).strip())
+        posting_id = row.get("id") or row.get("uuid") or row.get("refNumber")
+        url = row.get("postingUrl") or row.get("jobAdUrl") or (f"https://jobs.smartrecruiters.com/{quote(slug)}/{quote(str(posting_id))}" if posting_id else "")
+        employment = (row.get("typeOfEmployment") or {}).get("label", "") if isinstance(row.get("typeOfEmployment"), dict) else ""
+        output.append({
+            "company": company, "title": row.get("name", ""), "url": url,
+            "location": location.get("fullLocation") or location_text, "work_mode": "Remote" if location.get("remote") else ("Hybrid" if location.get("hybrid") else "Unspecified"),
+            "description": str(row.get("jobAd", "")) if row.get("jobAd") else str(row),
+            "posted_at": row.get("releasedDate", ""), "employment_type": infer_employment_type(row.get("name", ""), str(row), employment),
+            "salary_text": "Not stated", "source": "SmartRecruiters",
+        })
+    return output
+
+
+def _source_parts(slug: str, minimum: int = 2) -> list[str]:
+    parts = [part.strip() for part in slug.split("|", 2)]
+    if len(parts) < minimum or any(not part for part in parts[:minimum]):
+        raise RuntimeError("Source slug must use the documented pipe-separated format.")
+    return parts
+
+
+def parse_adzuna(slug: str, company: str, client: httpx.Client) -> list[dict[str, Any]]:
+    app_id = os.getenv("ADZUNA_APP_ID", "").strip()
+    app_key = os.getenv("ADZUNA_APP_KEY", "").strip()
+    if not app_id or not app_key:
+        raise RuntimeError("ADZUNA_APP_ID and ADZUNA_APP_KEY are required for Adzuna.")
+    country, query, *location = _source_parts(slug)
+    params = {"app_id": app_id, "app_key": app_key, "what": query, "results_per_page": 50, "content-type": "application/json"}
+    if location and location[0]:
+        params["where"] = location[0]
+    response = client.get(f"https://api.adzuna.com/v1/api/jobs/{quote(country)}/search/1", params=params)
+    response.raise_for_status()
+    rows = response.json().get("results", [])
+    return [{
+        "company": (row.get("company") or {}).get("display_name") or company, "title": row.get("title", ""), "url": row.get("redirect_url", ""),
+        "location": ((row.get("location") or {}).get("display_name", "")), "work_mode": "Unspecified", "description": row.get("description", ""),
+        "posted_at": row.get("created", ""), "employment_type": infer_employment_type(row.get("title", ""), row.get("description", ""), row.get("contract_type", "")),
+        "salary_text": f"{row.get('salary_min')} - {row.get('salary_max')} {row.get('salary_currency', '')}".strip(" -") if row.get("salary_min") or row.get("salary_max") else "Not stated", "source": "Adzuna",
+    } for row in rows]
+
+
+def parse_usajobs(slug: str, company: str, client: httpx.Client) -> list[dict[str, Any]]:
+    api_key = os.getenv("USAJOBS_API_KEY", "").strip()
+    user_agent = os.getenv("USAJOBS_USER_AGENT", "").strip()
+    if not api_key or not user_agent:
+        raise RuntimeError("USAJOBS_API_KEY and USAJOBS_USER_AGENT are required for USAJOBS.")
+    query, *location = _source_parts(slug)
+    headers = {"Authorization-Key": api_key, "User-Agent": user_agent}
+    params = {"Keyword": query, "ResultsPerPage": 100, "Page": 1}
+    if location and location[0]:
+        params["LocationName"] = location[0]
+    response = client.get("https://data.usajobs.gov/api/Search", params=params, headers=headers)
+    response.raise_for_status()
+    rows = response.json().get("SearchResult", {}).get("SearchResultItems", [])
+    output = []
+    for item in rows:
+        row = item.get("MatchedObjectDescriptor") or {}
+        locations = row.get("PositionLocation") or []
+        location_text = ", ".join(str((entry or {}).get("LocationName", "")).strip() for entry in locations if (entry or {}).get("LocationName"))
+        salary_rows = row.get("PositionRemuneration") or []
+        salary = salary_rows[0] if salary_rows else {}
+        salary_text = "Not stated"
+        if salary.get("MinimumRange") or salary.get("MaximumRange"):
+            salary_text = f"${salary.get('MinimumRange', '')} - ${salary.get('MaximumRange', '')}"
+        output.append({
+            "company": row.get("OrganizationName") or company, "title": row.get("PositionTitle", ""), "url": row.get("PositionURI", ""),
+            "location": location_text, "work_mode": "Unspecified", "description": row.get("UserArea", {}).get("Details", {}).get("JobSummary", "") if isinstance(row.get("UserArea"), dict) else "",
+            "posted_at": row.get("PublicationStartDate", ""), "employment_type": infer_employment_type(row.get("PositionTitle", ""), str(row)),
+            "salary_text": salary_text, "source": "USAJOBS",
+        })
+    return output
+
+
 def sponsor_for(db: Session, company: str) -> SponsorRow | None:
     key = company_key(company)
     return db.scalar(select(SponsorRow).where(SponsorRow.company_key == key).order_by(SponsorRow.imported_at.desc()))
@@ -789,9 +869,12 @@ def run_search(db: Session) -> dict[str, Any]:
     sources = db.scalars(select(SourceRow).where(SourceRow.enabled.is_(True))).all()
     result = {"sources_checked": 0, "jobs_seen": 0, "jobs_saved": 0, "new_matches": 0, "alerts_sent": 0, "source_errors": []}
     if not sources:
-        result["message"] = "Add Greenhouse, Lever, or Ashby job-board sources to begin searching."
+        result["message"] = "Add a supported employer board or public job API source to begin searching."
         return result
-    adapters = {"greenhouse": parse_greenhouse, "lever": parse_lever, "ashby": parse_ashby}
+    adapters = {
+        "greenhouse": parse_greenhouse, "lever": parse_lever, "ashby": parse_ashby,
+        "smartrecruiters": parse_smartrecruiters, "adzuna": parse_adzuna, "usajobs": parse_usajobs,
+    }
     client = httpx.Client(timeout=20, follow_redirects=True, headers={"User-Agent": "NeuralAnt/1.0 job-search"})
     try:
         for source in sources:
@@ -809,11 +892,13 @@ def run_search(db: Session) -> dict[str, Any]:
                     continue
                 result["jobs_seen"] += 1
                 existing = db.scalar(select(JobRow).where(JobRow.url == url))
-                sponsor = sponsor_for(db, source.company_name)
+                job_company = str(raw.get("company") or source.company_name).strip()[:255]
+                sponsor = sponsor_for(db, job_company)
                 fit, reasons, breakdown, status, evidence, evidence_url = score_job(raw, profile, sponsor)
                 salary_min, salary_max = parse_salary(raw.get("salary_text", ""))
                 if existing:
                     existing.last_seen = datetime.now(timezone.utc)
+                    existing.company_name = job_company
                     existing.employment_type = str(raw.get("employment_type") or infer_employment_type(title, str(raw.get("description", ""))))[:120]
                     existing.fit_score = fit
                     existing.fit_reasons = reasons
@@ -823,7 +908,7 @@ def run_search(db: Session) -> dict[str, Any]:
                     existing.sponsorship_url = evidence_url
                     continue
                 job = JobRow(
-                    url=url, company_name=source.company_name, title=title, source=str(raw.get("source", source.ats_type)),
+                    url=url, company_name=job_company, title=title, source=str(raw.get("source", source.ats_type)),
                     location=str(raw.get("location", ""))[:500], work_mode=str(raw.get("work_mode", "Unspecified"))[:80],
                     employment_type=str(raw.get("employment_type") or infer_employment_type(title, str(raw.get("description", ""))))[:120],
                     salary_text=str(raw.get("salary_text", "Not stated"))[:255], salary_min=salary_min, salary_max=salary_max,
@@ -843,10 +928,10 @@ def run_search(db: Session) -> dict[str, Any]:
                     if profile.get("email_alerts") and profile.get("email"):
                         already_sent = db.scalar(select(AlertRow).where(AlertRow.job_url == url))
                         if not already_sent:
-                            body = (f"{title} — {source.company_name}\n\nFit score: {fit}%\n"
+                            body = (f"{title} — {job_company}\n\nFit score: {fit}%\n"
                                     f"Location: {job.location or 'Not stated'}\nWork mode: {job.work_mode}\n"
                                     f"Salary: {job.salary_text}\nSponsorship signal: {status}\n{evidence}\n\n{url}")
-                            if send_email(profile["email"], f"Neural Ant match: {title} at {source.company_name}", body):
+                            if send_email(profile["email"], f"Neural Ant match: {title} at {job_company}", body):
                                 db.add(AlertRow(job_url=url))
                                 result["alerts_sent"] += 1
         db.commit()
@@ -1153,9 +1238,12 @@ def add_source(body: SourceBody, _: None = Depends(require_auth), db: Session = 
     slug = body.slug.strip()
     company = body.company_name.strip()
     if ats_type not in SUPPORTED_ATS:
-        raise HTTPException(status_code=422, detail="Choose Greenhouse, Lever, or Ashby.")
-    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,159}", slug):
-        raise HTTPException(status_code=422, detail="Board slug contains unsupported characters.")
+        raise HTTPException(status_code=422, detail="Choose a supported employer board or public job API source.")
+    pattern = r"[A-Za-z0-9][A-Za-z0-9._-]{0,159}"
+    if ats_type in {"adzuna", "usajobs"}:
+        pattern = r"[A-Za-z0-9][A-Za-z0-9 .,_+|/-]{0,159}"
+    if not re.fullmatch(pattern, slug):
+        raise HTTPException(status_code=422, detail="Source configuration contains unsupported characters.")
     row = SourceRow(ats_type=ats_type, slug=slug, company_name=company)
     db.add(row)
     try:
