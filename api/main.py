@@ -1474,18 +1474,80 @@ def update_application(application_id: int, body: StageBody, _: None = Depends(r
 
 
 def deterministic_tailor(resume_text: str, job: JobRow, profile: dict[str, Any]) -> str:
-    skills = [str(value) for value in profile.get("skills", [])]
-    terms = list(dict.fromkeys(skills + [word for word in re.findall(r"[A-Za-z][A-Za-z+#.-]{2,}", job.title + " " + job.description[:4000]) if len(word) > 3]))
-    lines = [line.strip() for line in resume_text.splitlines() if len(line.strip()) > 18]
-    selected = [line for line in lines if any(term.lower() in line.lower() for term in terms[:80])][:18]
-    if not selected:
-        selected = lines[:12]
+    """Create a readable, source-grounded tailoring brief for local mode.
+
+    PDF extraction commonly splits one bullet across several lines. The old
+    implementation displayed those fragments directly in Copilot, which made
+    the tailoring output look broken and harder to review.
+    """
+
+    def clean(value: str) -> str:
+        value = re.sub(r"\s+", " ", value).strip()
+        value = re.sub(r"(?<=\w)\s*-\s*(?=[a-z])", "-", value)
+        return re.sub(r"(?<=[A-Za-z0-9)])\s+([,;:%)])", r"\1", value)
+
+    def source_blocks(value: str) -> list[str]:
+        blocks: list[str] = []
+        current = ""
+        headings = {"skills", "experience", "projects", "education"}
+        for raw in value.splitlines():
+            line = clean(raw)
+            if not line:
+                continue
+            bullet = re.match(r"^[•▪◦–—-]\s*(.+)$", line)
+            if bullet:
+                if current:
+                    blocks.append(current)
+                current = bullet.group(1).strip()
+                continue
+            is_heading = line.casefold() in headings
+            is_role_or_school_date = bool(re.search(r"(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+20\d{2}", line, re.I))
+            if current and not is_heading and not is_role_or_school_date:
+                current = f"{current} {line}".strip()
+            else:
+                if current:
+                    blocks.append(current)
+                    current = ""
+                blocks.append(line)
+        if current:
+            blocks.append(current)
+        return [block for block in blocks if len(block) >= 18]
+
+    source = source_blocks(resume_text)
+    profile_terms = [str(value).casefold() for value in profile.get("skills", []) if str(value).strip()]
+    job_terms = [
+        word.casefold()
+        for word in re.findall(r"[A-Za-z][A-Za-z+#./-]{3,}", f"{job.title} {job.description[:12000]}")
+        if word.casefold() not in {
+            "this", "that", "with", "from", "have", "will", "your", "they", "their", "into", "about",
+            "work", "role", "team", "build", "building", "using", "used", "experience", "strong", "looking",
+            "including", "required", "requirements", "ability", "across", "through", "based", "systems",
+        }
+    ]
+    terms = list(dict.fromkeys(profile_terms + job_terms))
+
+    def score(value: str) -> int:
+        lower = value.casefold()
+        return sum(1 for term in terms[:140] if len(term) >= 4 and term in lower)
+
+    bullet_starters = (
+        "Architected ", "Developed ", "Engineered ", "Implemented ", "Eliminated ", "Orchestrated ",
+        "Designed ", "Collaborated ", "Authored ", "Leading ", "Standardized ", "Built ", "Utilized ",
+    )
+    bullets = [block for block in source if block.startswith(bullet_starters)]
+    selected = sorted(bullets, key=score, reverse=True)[:18] or source[:12]
+    matched_terms = [term for term in terms if any(term in line.casefold() for line in selected) and len(term) >= 4]
+    matched_text = ", ".join(dict.fromkeys(matched_terms[:18]))
     return (
-        f"# Resume draft for {job.title} — {job.company_name}\n\n"
-        "Review every line against your source resume before using this draft. This local draft only reorders existing lines; it does not add claims.\n\n"
-        "## Relevant existing resume content\n\n" + "\n".join(f"- {line}" for line in selected) +
-        "\n\n## Role details to verify\n\n"
-        f"- Posting: {job.url}\n- Compensation: {job.salary_text}\n- Sponsorship signal: {job.sponsorship_status} — {job.sponsorship_evidence}\n"
+        f"# Tailoring brief — {job.title} at {job.company_name}\n\n"
+        "Local mode only reorders and selects wording already present in your uploaded resume. It does not add employers, dates, tools, metrics, authorization details, or claims. Review the downloaded resume before using it.\n\n"
+        "## Source facts to emphasize\n\n" + "\n".join(f"- {line}" for line in selected) +
+        "\n\n## Match signals found in your source resume\n\n"
+        + (f"- {matched_text}" if matched_text else "- No direct source phrase matched the posting; keep the baseline resume and verify the role manually.") +
+        "\n\n## Manual checks before submission\n\n"
+        "- Confirm every selected line is still accurate and complete.\n"
+        "- Confirm the posting's work authorization, sponsorship, location, and employment type yourself.\n"
+        "- Attach the downloaded resume yourself; Neural Ant does not upload or submit applications.\n"
     )
 
 

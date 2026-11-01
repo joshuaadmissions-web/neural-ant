@@ -23,13 +23,24 @@ def _text(value: Any) -> str:
     return str(value or "").strip()
 
 
-def _clean_line(value: str) -> str:
+def _normalise_spacing(value: str) -> str:
     value = re.sub(r"\s+", " ", value).strip()
+    # Text extracted from PDFs often separates a hyphenated word at the line
+    # boundary (for example ``sub -second`` or ``third- party``). Repair only
+    # hyphens whose following word starts lowercase so company names and date
+    # ranges such as ``Cognizant - Trizetto`` and ``2026 – Present`` stay intact.
+    value = re.sub(r"(?<=\w)\s*-\s*(?=[a-z])", "-", value)
+    value = re.sub(r"(?<=[A-Za-z0-9)])\s+([,;:%)])", r"\1", value)
+    return value
+
+
+def _clean_line(value: str) -> str:
+    value = _normalise_spacing(value)
     return re.sub(r"^[•·▪◦–—-]\s*", "", value).strip()
 
 
 def _source_lines(source_text: str) -> list[str]:
-    return [re.sub(r"\s+", " ", line).strip() for line in _text(source_text).splitlines() if line.strip()]
+    return [_normalise_spacing(line) for line in _text(source_text).splitlines() if line.strip()]
 
 
 def _section(lines: list[str], heading: str, end_heading: str | None = None) -> list[str]:
@@ -176,10 +187,29 @@ def _source_education(source_text: str, profile: dict[str, Any]) -> list[dict[st
     return result
 
 
-def _relevance_terms(profile: dict[str, Any], job: Any) -> list[str]:
+def _relevance_terms(profile: dict[str, Any], job: Any, source_text: str = "") -> list[str]:
+    """Return safe ranking terms without adding any candidate facts.
+
+    The old ranking only considered saved profile skills and title words. A
+    role can mention a source-resume technology in a different section of the
+    posting, so this also promotes source terms that are actually present in
+    the posting. Generic prose words are excluded to keep the ordering useful.
+    """
     skills = [_text(item).casefold() for item in profile.get("skills", []) if _text(item)]
     title_words = re.findall(r"[a-z][a-z+#.-]{3,}", _text(getattr(job, "title", "")).casefold())
-    return list(dict.fromkeys(sorted(skills + title_words, key=len, reverse=True)))
+    job_text = f"{_text(getattr(job, 'title', ''))} {_text(getattr(job, 'description', ''))}".casefold()
+    generic = {
+        "this", "that", "with", "from", "have", "will", "your", "they", "their", "into", "about",
+        "work", "role", "team", "build", "building", "using", "used", "experience", "strong", "looking",
+        "including", "required", "requirements", "ability", "across", "through", "based", "systems", "data",
+        "system", "service", "services", "time", "real", "production", "develop", "developed", "design",
+    }
+    source_terms = []
+    for candidate in re.findall(r"[A-Za-z][A-Za-z0-9+#./-]{3,}", source_text):
+        normalized = candidate.casefold()
+        if normalized not in generic and normalized in job_text:
+            source_terms.append(normalized)
+    return list(dict.fromkeys(sorted(skills + title_words + source_terms, key=len, reverse=True)))
 
 
 def _relevance_score(value: str, terms: list[str], job_description: str) -> int:
@@ -342,7 +372,7 @@ def build_resume_docx(profile: dict[str, Any], job: Any, draft_content: str, sou
 
     skills = _source_skills(source_text, profile)
     job_description = _text(getattr(job, "description", ""))
-    terms = _relevance_terms(profile, job)
+    terms = _relevance_terms(profile, job, source_text)
     skills = sorted(skills, key=lambda item: _relevance_score(f"{item[0]} {item[1]}", terms, job_description), reverse=True)
     if skills:
         _section_heading(document, "Skills")
