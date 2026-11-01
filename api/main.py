@@ -122,6 +122,7 @@ class JobRow(Base):
     posted_at: Mapped[str] = mapped_column(String(80), default="")
     fit_score: Mapped[int] = mapped_column(Integer, default=0, index=True)
     fit_reasons: Mapped[list[str]] = mapped_column(JSON, default=list)
+    fit_breakdown: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     sponsorship_status: Mapped[str] = mapped_column(String(40), default="unclear")
     sponsorship_evidence: Mapped[str] = mapped_column(Text, default="")
     sponsorship_url: Mapped[str] = mapped_column(String(2000), default="")
@@ -532,6 +533,7 @@ def public_job_payload(job: JobRow) -> dict[str, Any]:
         "posted_at": job.posted_at,
         "fit_score": job.fit_score,
         "fit_reasons": job.fit_reasons or [],
+        "fit_breakdown": job.fit_breakdown or {},
         "sponsorship_status": job.sponsorship_status,
         "sponsorship_evidence": job.sponsorship_evidence,
         "sponsorship_url": job.sponsorship_url,
@@ -605,61 +607,124 @@ def sponsor_for(db: Session, company: str) -> SponsorRow | None:
     return db.scalar(select(SponsorRow).where(SponsorRow.company_key == key).order_by(SponsorRow.imported_at.desc()))
 
 
-def score_job(job: dict[str, Any], profile: dict[str, Any], sponsor: SponsorRow | None) -> tuple[int, list[str], str, str, str]:
-    title = job.get("title", "")
-    text = f"{title} {job.get('description', '')}".lower()
+def score_job(job: dict[str, Any], profile: dict[str, Any], sponsor: SponsorRow | None) -> tuple[int, list[str], dict[str, Any], str, str, str]:
+    title = str(job.get("title") or "")
+    description = str(job.get("description") or "")
+    text = f"{title} {description}".lower()
+    title_text = title.lower()
     reasons: list[str] = []
+    breakdown: dict[str, Any] = {}
     score = 0
+
     skills = [str(item).strip() for item in profile.get("skills", []) if str(item).strip()]
     skill_hits = [skill for skill in skills if skill.lower() in text]
-    if skills:
-        skill_score = min(42, round(42 * len(skill_hits) / max(1, min(len(skills), 8))))
-        score += skill_score
-        if skill_hits:
-            reasons.append("Matching skills: " + ", ".join(skill_hits[:8]))
+    skill_missing = [skill for skill in skills if skill not in skill_hits]
+    skill_score = min(42, round(42 * len(skill_hits) / max(1, min(len(skills), 8)))) if skills else 0
+    score += skill_score
+    if skill_hits:
+        reasons.append("Matching skills: " + ", ".join(skill_hits[:8]))
+    breakdown["skills"] = {
+        "label": "Skills",
+        "score": skill_score,
+        "max": 42,
+        "detail": (
+            f"Matched: {', '.join(skill_hits[:6])}"
+            + (f" · Missing or not stated: {', '.join(skill_missing[:4])}" if skill_missing else "")
+            if skill_hits
+            else ("No saved skills to compare" if not skills else "No saved skills found in the posting")
+        ),
+    }
+
     targets = [str(item).strip() for item in profile.get("target_titles", []) if str(item).strip()]
-    title_hits = [target for target in targets if target.lower() in title.lower()]
+    title_hits = [target for target in targets if target.lower() in title_text]
+    related_title = bool(targets and not title_hits and any(token in title_text for target in targets for token in target.lower().split() if len(token) > 3))
+    title_score = 24 if title_hits else 10 if related_title else 0
+    score += title_score
     if title_hits:
-        score += 24
         reasons.append("Title matches target: " + title_hits[0])
-    elif targets and any(token in title.lower() for target in targets for token in target.lower().split() if len(token) > 3):
-        score += 10
+    elif related_title:
         reasons.append("Title has related target-role terms")
+    breakdown["title"] = {
+        "label": "Target role",
+        "score": title_score,
+        "max": 24,
+        "detail": f"Matched: {title_hits[0]}" if title_hits else ("Related title terms found" if related_title else "No saved target title match"),
+    }
+
     min_salary = profile.get("minimum_salary")
-    salary_min, salary_max = parse_salary(job.get("salary_text", ""))
+    salary_min, salary_max = parse_salary(str(job.get("salary_text") or ""))
+    salary_score = 0
     if min_salary and salary_max and salary_max >= int(min_salary):
-        score += 12
+        salary_score = 12
         reasons.append("Stated salary overlaps your minimum")
+        salary_detail = "Stated range overlaps your saved minimum"
     elif min_salary and not salary_max:
         reasons.append("Salary not stated; check before applying")
-    modes = [str(item).lower() for item in profile.get("work_modes", [])]
-    mode_text = (job.get("work_mode", "") + " " + job.get("location", "") + " " + job.get("description", "")[:2000]).lower()
-    mode_hit = next((mode for mode in modes if mode in mode_text), None)
-    if mode_hit:
-        score += 10
-        reasons.append("Work mode signal: " + mode_hit)
-    if profile.get("location_preferences"):
-        loc = (job.get("location", "") + " " + job.get("description", "")[:1000]).lower()
-        if any(str(place).lower() in loc for place in profile["location_preferences"] if str(place).strip()):
-            score += 8
-            reasons.append("Location matches a saved preference")
+        salary_detail = "Salary not stated; verify on the official posting"
+    elif min_salary:
+        salary_detail = "Stated range does not reach your saved minimum"
+    else:
+        salary_detail = "No minimum salary saved"
+    score += salary_score
+    breakdown["salary"] = {"label": "Salary", "score": salary_score, "max": 12, "detail": salary_detail}
 
-    low = job.get("description", "").lower()
+    modes = [str(item).lower() for item in profile.get("work_modes", []) if str(item).strip()]
+    mode_text = (str(job.get("work_mode") or "") + " " + str(job.get("location") or "") + " " + description[:2000]).lower()
+    mode_hit = next((mode for mode in modes if mode in mode_text), None)
+    mode_score = 10 if mode_hit else 0
+    score += mode_score
+    if mode_hit:
+        reasons.append("Work mode signal: " + mode_hit)
+    breakdown["work_mode"] = {"label": "Work mode", "score": mode_score, "max": 10, "detail": f"Matched: {mode_hit}" if mode_hit else ("No saved work-mode match" if modes else "No work-mode preference saved")}
+
+    location_preferences = [str(item).strip() for item in profile.get("location_preferences", []) if str(item).strip()]
+    loc = (str(job.get("location") or "") + " " + description[:1000]).lower()
+    location_hit = next((place for place in location_preferences if place.lower() in loc), None)
+    location_score = 8 if location_hit else 0
+    score += location_score
+    if location_hit:
+        reasons.append("Location matches a saved preference")
+    breakdown["location"] = {"label": "Location", "score": location_score, "max": 8, "detail": f"Matched: {location_hit}" if location_hit else ("No saved location match" if location_preferences else "No location preference saved")}
+
+    employment_type = str(job.get("employment_type") or infer_employment_type(title, description))
+    employment_preferences = [str(item).strip() for item in profile.get("employment_type_preferences", []) if str(item).strip()]
+    employment_text = employment_type.lower()
+    employment_hit = next((pref for pref in employment_preferences if pref.lower() in employment_text or (pref.lower() == "w2" and "w-2" in employment_text)), None)
+    employment_score = 4 if employment_hit else 0
+    score += employment_score
+    if employment_hit:
+        reasons.append("Employment type matches preference: " + employment_hit)
+    breakdown["employment_type"] = {
+        "label": "Employment type",
+        "score": employment_score,
+        "max": 4,
+        "detail": f"Posting: {employment_type}" + (f" · Preference matched: {employment_hit}" if employment_hit else (" · No preference match" if employment_preferences else " · No preference saved")),
+    }
+
+    low = description.lower()
     negative = any(term in low for term in ["unable to sponsor", "will not sponsor", "cannot sponsor", "no visa sponsorship", "not provide sponsorship"])
     explicit = any(term in low for term in ["visa sponsorship available", "will sponsor", "sponsorship is available", "sponsor h-1b", "h-1b sponsorship"])
+    sponsor_score = 0
     if negative:
-        sponsor_status, sponsor_evidence, sponsor_url = "posting says no", "The posting contains a sponsorship restriction.", job.get("url", "")
+        sponsor_status, sponsor_evidence, sponsor_url = "posting says no", "The posting contains a sponsorship restriction.", str(job.get("url") or "")
+        sponsor_detail = "Posting contains a sponsorship restriction"
     elif explicit:
-        sponsor_status, sponsor_evidence, sponsor_url = "posting mentions sponsorship", "Sponsorship wording found in this job posting; verify with the employer.", job.get("url", "")
-        score += 4
+        sponsor_status, sponsor_evidence, sponsor_url = "posting mentions sponsorship", "Sponsorship wording found in this job posting; verify with the employer.", str(job.get("url") or "")
+        sponsor_score = 4
+        score += sponsor_score
+        sponsor_detail = "Posting mentions sponsorship; verify the exact requirement"
     elif sponsor:
         sponsor_status = "employer filing history"
         sponsor_evidence = f"{sponsor.evidence_type}; {sponsor.evidence_year or 'year not stated'}; {sponsor.filing_count} filing(s). This is employer history, not a guarantee for this job."
         sponsor_url = sponsor.evidence_url
-        score += 4
+        sponsor_score = 4
+        score += sponsor_score
+        sponsor_detail = "Historical employer evidence only; not a promise for this role"
     else:
         sponsor_status, sponsor_evidence, sponsor_url = "unclear", "No employer-level evidence imported and no clear sponsorship statement found in the posting.", ""
-    return min(100, score), reasons, sponsor_status, sponsor_evidence, sponsor_url
+        sponsor_detail = "No clear sponsorship statement found"
+    breakdown["sponsorship"] = {"label": "Sponsorship signal", "score": sponsor_score, "max": 4, "detail": sponsor_detail}
+    return min(100, score), reasons, breakdown, sponsor_status, sponsor_evidence, sponsor_url
 
 
 def refresh_job_scores(db: Session, profile: dict[str, Any]) -> None:
@@ -669,15 +734,17 @@ def refresh_job_scores(db: Session, profile: dict[str, Any]) -> None:
             "description": job.description,
             "location": job.location,
             "work_mode": job.work_mode,
+            "employment_type": job.employment_type,
             "salary_text": job.salary_text,
             "url": job.url,
         }
-        fit, reasons, status, evidence, evidence_url = score_job(raw, profile, sponsor_for(db, job.company_name))
+        fit, reasons, breakdown, status, evidence, evidence_url = score_job(raw, profile, sponsor_for(db, job.company_name))
         experience_note = re.search(r"Experience stated in supplied role notes:\s*(.+)", job.description or "")
         if experience_note:
             reasons.append(f"Role experience stated: {experience_note.group(1).splitlines()[0].strip()}")
         job.fit_score = fit
         job.fit_reasons = reasons
+        job.fit_breakdown = breakdown
         if job.source != "Manual":
             job.sponsorship_status = status
             job.sponsorship_evidence = evidence
@@ -742,13 +809,14 @@ def run_search(db: Session) -> dict[str, Any]:
                 result["jobs_seen"] += 1
                 existing = db.scalar(select(JobRow).where(JobRow.url == url))
                 sponsor = sponsor_for(db, source.company_name)
-                fit, reasons, status, evidence, evidence_url = score_job(raw, profile, sponsor)
+                fit, reasons, breakdown, status, evidence, evidence_url = score_job(raw, profile, sponsor)
                 salary_min, salary_max = parse_salary(raw.get("salary_text", ""))
                 if existing:
                     existing.last_seen = datetime.now(timezone.utc)
                     existing.employment_type = str(raw.get("employment_type") or infer_employment_type(title, str(raw.get("description", ""))))[:120]
                     existing.fit_score = fit
                     existing.fit_reasons = reasons
+                    existing.fit_breakdown = breakdown
                     existing.sponsorship_status = status
                     existing.sponsorship_evidence = evidence
                     existing.sponsorship_url = evidence_url
@@ -759,7 +827,7 @@ def run_search(db: Session) -> dict[str, Any]:
                     employment_type=str(raw.get("employment_type") or infer_employment_type(title, str(raw.get("description", ""))))[:120],
                     salary_text=str(raw.get("salary_text", "Not stated"))[:255], salary_min=salary_min, salary_max=salary_max,
                     description=re.sub(r"<[^>]+>", " ", str(raw.get("description", "")))[:40000],
-                    posted_at=str(raw.get("posted_at", ""))[:80], fit_score=fit, fit_reasons=reasons,
+                    posted_at=str(raw.get("posted_at", ""))[:80], fit_score=fit, fit_reasons=reasons, fit_breakdown=breakdown,
                     sponsorship_status=status, sponsorship_evidence=evidence, sponsorship_url=evidence_url,
                 )
                 db.add(job)
@@ -868,16 +936,17 @@ def initialize_database() -> None:
     if "employment_type" not in columns:
         with engine.begin() as connection:
             connection.execute(sql_text("ALTER TABLE jobs ADD COLUMN employment_type VARCHAR(120) DEFAULT 'Not stated'"))
+    if "fit_breakdown" not in columns:
+        with engine.begin() as connection:
+            connection.execute(sql_text("ALTER TABLE jobs ADD COLUMN fit_breakdown JSON DEFAULT '{}'"))
     with SessionLocal() as db:
-        changed = False
         for job in db.scalars(select(JobRow)).all():
             if not job.employment_type or job.employment_type == "Not stated":
                 inferred = infer_employment_type(job.title, job.description or "")
                 if job.employment_type != inferred:
                     job.employment_type = inferred
-                    changed = True
-        if changed:
-            db.commit()
+        refresh_job_scores(db, ensure_profile(db).data or DEFAULT_PROFILE)
+        db.commit()
     if SEARCH_INTERVAL_SECONDS and _search_thread is None:
         _search_stop.clear()
         _search_thread = Thread(target=automatic_search_loop, name="neural-ant-search", daemon=True)
@@ -1194,7 +1263,7 @@ def import_manual_jobs(body: ManualJobsBody, _: None = Depends(require_auth), db
             "url": url,
         }
         sponsor = sponsor_for(db, item.company_name.strip())
-        fit, reasons, status, evidence, evidence_url = score_job(raw, profile, sponsor)
+        fit, reasons, breakdown, status, evidence, evidence_url = score_job(raw, profile, sponsor)
         if item.experience_text.strip():
             reasons.append(f"Role experience stated: {item.experience_text.strip()}")
         if item.sponsorship_note.strip():
@@ -1217,6 +1286,7 @@ def import_manual_jobs(body: ManualJobsBody, _: None = Depends(require_auth), db
             existing.source = "Manual"
             existing.fit_score = fit
             existing.fit_reasons = reasons
+            existing.fit_breakdown = breakdown
             existing.sponsorship_status = status
             existing.sponsorship_evidence = evidence
             existing.sponsorship_url = evidence_url
@@ -1241,6 +1311,7 @@ def import_manual_jobs(body: ManualJobsBody, _: None = Depends(require_auth), db
             posted_at="",
             fit_score=fit,
             fit_reasons=reasons,
+            fit_breakdown=breakdown,
             sponsorship_status=status,
             sponsorship_evidence=evidence,
             sponsorship_url=evidence_url,
