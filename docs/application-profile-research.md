@@ -31,6 +31,7 @@ The editable application profile covers:
 - education entries with school, degree, field, and dates;
 - certifications/licenses, languages and proficiency;
 - availability date, notice period, employment-type preferences, relocation, and travel preference;
+- common employment-type values can include Full-time, Contract, Contract-to-hire, C2C, W-2, and 1099; the job board display keeps the posting's wording and marks missing information as not stated;
 - the existing resume, skills, target roles, salary, work-mode, and location preferences.
 
 Dates, employers, titles, skills, and achievements must come from the user's verified source material. Tailoring may reorder or clarify verified evidence, but it must not invent qualifications or add keywords solely to manipulate a screening system.

@@ -26,7 +26,7 @@ from fastapi.staticfiles import StaticFiles
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from pydantic import BaseModel, Field
 from pypdf import PdfReader
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, create_engine, func, select
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, create_engine, func, inspect, select, text as sql_text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 
@@ -114,6 +114,7 @@ class JobRow(Base):
     source: Mapped[str] = mapped_column(String(32))
     location: Mapped[str] = mapped_column(String(500), default="")
     work_mode: Mapped[str] = mapped_column(String(80), default="Unspecified")
+    employment_type: Mapped[str] = mapped_column(String(120), default="Not stated")
     salary_text: Mapped[str] = mapped_column(String(255), default="Not stated")
     salary_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
     salary_max: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -264,6 +265,37 @@ def parse_salary(text: str) -> tuple[int | None, int | None]:
         except ValueError:
             pass
     return (min(values), max(values)) if values else (None, None)
+
+
+def infer_employment_type(title: str, description: str, explicit: str = "") -> str:
+    """Return only employment-type signals stated in the supplied posting text."""
+    text = " ".join(
+        str(part) for part in (explicit, title, str(description or "")[:12000]) if part
+    ).casefold()
+    found: list[str] = []
+
+    def positive(pattern: str) -> bool:
+        match = re.search(pattern, text, re.I)
+        if not match:
+            return False
+        prefix = text[max(0, match.start() - 28) : match.start()]
+        return not re.search(r"(?:no|not|without|don't|do not|does not)\s*$", prefix, re.I)
+
+    if positive(r"\b(?:corp(?:oration)?[- ]to[- ]corp(?:oration)?|c2c)\b"):
+        found.append("C2C")
+    if positive(r"\b(?:w[- ]?2|wage[- ]?2)\b"):
+        found.append("W-2")
+    if positive(r"\b1099\b"):
+        found.append("1099")
+    if positive(r"\bcontract[- ]?to[- ]?hire\b"):
+        found.append("Contract-to-hire")
+    elif positive(r"\b(?:contract(?:or|ual)?|temporary|temp[- ]to[- ]?hire)\b"):
+        found.append("Contract")
+    if positive(r"\bfull[- ]?time\b"):
+        found.append("Full-time")
+    if positive(r"\bpart[- ]?time\b"):
+        found.append("Part-time")
+    return " / ".join(dict.fromkeys(found)) or "Not stated"
 
 
 def extract_resume_text(filename: str, data: bytes) -> str:
@@ -490,6 +522,7 @@ def public_job_payload(job: JobRow) -> dict[str, Any]:
         "company": job.company_name,
         "location": job.location,
         "work_mode": job.work_mode,
+        "employment_type": job.employment_type,
         "salary": job.salary_text,
         "salary_min": job.salary_min,
         "salary_max": job.salary_max,
@@ -523,6 +556,7 @@ def parse_greenhouse(slug: str, company: str, client: httpx.Client) -> list[dict
         "company": company, "title": row.get("title", ""), "url": row.get("absolute_url", ""),
         "location": (row.get("location") or {}).get("name", ""), "work_mode": "Unspecified",
         "description": row.get("content", ""), "posted_at": row.get("updated_at", ""),
+        "employment_type": infer_employment_type(row.get("title", ""), row.get("content", "")),
         "salary_text": "Not stated", "source": "Greenhouse",
     } for row in rows]
 
@@ -542,6 +576,7 @@ def parse_lever(slug: str, company: str, client: httpx.Client) -> list[dict[str,
             "company": company, "title": row.get("text", ""), "url": row.get("hostedUrl", ""),
             "location": categories.get("location", ""), "work_mode": row.get("workplaceType") or "Unspecified",
             "description": row.get("descriptionPlain", ""), "posted_at": str(row.get("createdAt", "")),
+            "employment_type": infer_employment_type(row.get("text", ""), row.get("descriptionPlain", ""), categories.get("commitment", "")),
             "salary_text": salary_text, "source": "Lever",
         })
     return output
@@ -559,6 +594,7 @@ def parse_ashby(slug: str, company: str, client: httpx.Client) -> list[dict[str,
             "company": company, "title": row.get("title", ""), "url": row.get("jobUrl", ""),
             "location": row.get("location", ""), "work_mode": "Remote" if row.get("isRemote") else "Unspecified",
             "description": row.get("descriptionPlain", ""), "posted_at": row.get("publishedAt", ""),
+            "employment_type": infer_employment_type(row.get("title", ""), row.get("descriptionPlain", ""), str(row.get("employmentType") or row.get("employmentTypeName") or "")),
             "salary_text": salary_text, "source": "Ashby",
         })
     return output
@@ -710,6 +746,7 @@ def run_search(db: Session) -> dict[str, Any]:
                 salary_min, salary_max = parse_salary(raw.get("salary_text", ""))
                 if existing:
                     existing.last_seen = datetime.now(timezone.utc)
+                    existing.employment_type = str(raw.get("employment_type") or infer_employment_type(title, str(raw.get("description", ""))))[:120]
                     existing.fit_score = fit
                     existing.fit_reasons = reasons
                     existing.sponsorship_status = status
@@ -719,6 +756,7 @@ def run_search(db: Session) -> dict[str, Any]:
                 job = JobRow(
                     url=url, company_name=source.company_name, title=title, source=str(raw.get("source", source.ats_type)),
                     location=str(raw.get("location", ""))[:500], work_mode=str(raw.get("work_mode", "Unspecified"))[:80],
+                    employment_type=str(raw.get("employment_type") or infer_employment_type(title, str(raw.get("description", ""))))[:120],
                     salary_text=str(raw.get("salary_text", "Not stated"))[:255], salary_min=salary_min, salary_max=salary_max,
                     description=re.sub(r"<[^>]+>", " ", str(raw.get("description", "")))[:40000],
                     posted_at=str(raw.get("posted_at", ""))[:80], fit_score=fit, fit_reasons=reasons,
@@ -790,6 +828,7 @@ class ManualJobItem(BaseModel):
     title: str = Field(min_length=1, max_length=500)
     location: str = Field(default="", max_length=500)
     work_mode: str = Field(default="Unspecified", max_length=80)
+    employment_type: str = Field(default="Not stated", max_length=120)
     salary_text: str = Field(default="Not stated", max_length=255)
     experience_text: str = Field(default="", max_length=255)
     sponsorship_note: str = Field(default="", max_length=2000)
@@ -825,6 +864,20 @@ async def security_headers(request: Request, call_next):
 def initialize_database() -> None:
     global _search_thread
     Base.metadata.create_all(bind=engine)
+    columns = {column["name"] for column in inspect(engine).get_columns("jobs")}
+    if "employment_type" not in columns:
+        with engine.begin() as connection:
+            connection.execute(sql_text("ALTER TABLE jobs ADD COLUMN employment_type VARCHAR(120) DEFAULT 'Not stated'"))
+    with SessionLocal() as db:
+        changed = False
+        for job in db.scalars(select(JobRow)).all():
+            if not job.employment_type or job.employment_type == "Not stated":
+                inferred = infer_employment_type(job.title, job.description or "")
+                if job.employment_type != inferred:
+                    job.employment_type = inferred
+                    changed = True
+        if changed:
+            db.commit()
     if SEARCH_INTERVAL_SECONDS and _search_thread is None:
         _search_stop.clear()
         _search_thread = Thread(target=automatic_search_loop, name="neural-ant-search", daemon=True)
@@ -1130,11 +1183,13 @@ def import_manual_jobs(body: ManualJobsBody, _: None = Depends(require_auth), db
         if item.experience_text.strip():
             description_parts.append(f"Experience stated in supplied role notes: {item.experience_text.strip()}")
         description = "\n\n".join(part for part in description_parts if part)[:40000]
+        employment_type = infer_employment_type(item.title, description, item.employment_type)
         raw = {
             "title": item.title.strip(),
             "description": description,
             "location": item.location.strip(),
             "work_mode": item.work_mode.strip() or "Unspecified",
+            "employment_type": employment_type,
             "salary_text": item.salary_text.strip() or "Not stated",
             "url": url,
         }
@@ -1155,6 +1210,7 @@ def import_manual_jobs(body: ManualJobsBody, _: None = Depends(require_auth), db
             existing.title = item.title.strip()
             existing.location = item.location.strip()
             existing.work_mode = item.work_mode.strip() or "Unspecified"
+            existing.employment_type = employment_type
             existing.salary_text = item.salary_text.strip() or "Not stated"
             existing.salary_min, existing.salary_max = parse_salary(existing.salary_text)
             existing.description = description
@@ -1177,6 +1233,7 @@ def import_manual_jobs(body: ManualJobsBody, _: None = Depends(require_auth), db
             source="Manual",
             location=item.location.strip(),
             work_mode=item.work_mode.strip() or "Unspecified",
+            employment_type=employment_type,
             salary_text=raw["salary_text"],
             salary_min=salary_min,
             salary_max=salary_max,
