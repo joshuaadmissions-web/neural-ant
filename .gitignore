@@ -30,3 +30,8 @@ __pycache__/
 .pytest_cache/
 .coverage
 coverage/
+
+# Public anonymized sample only; private resume originals remain ignored.
+!/resume/
+resume/*
+!/resume/Neural_Ant_Anonymized_Resume_Sample.pdf
