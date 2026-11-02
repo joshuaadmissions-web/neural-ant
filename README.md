@@ -122,7 +122,7 @@ By default, Neural Ant creates a local draft that reorders existing resume lines
 
 ## Navigate and fill application forms with browser RPA
 
-The local Chrome extension provides a supervised browser workflow: from an employer job posting, it finds visible HTTPS links labeled for applying; you choose the correct link and open it in a new tab; on the application page, you click **Fill application**, **Save draft locally**, or **Restore saved draft**. It does not click page buttons automatically, overwrite populated fields, upload a resume, or submit the application.
+The local Chrome extension provides a supervised browser workflow: from an employer job posting, it finds visible HTTPS links labeled for applying; you choose the correct link and open it in a new tab; on the application page, you click **Fill application**, review the field checklist, then use **Save draft locally** or **Restore saved draft**. It does not click page buttons automatically, overwrite populated fields, upload a resume, or submit the application.
 
 It checks visible field labels and current values locally to identify supported empty fields. It does not send form contents to Neural Ant or another service. It leaves work-authorization and sponsorship questions, unknown experience claims, referrals, legal attestations, demographic questions, and role-specific written answers for you. Attach the correct resume yourself and review the entire form before submitting.
 
@@ -130,7 +130,7 @@ It checks visible field labels and current values locally to identify supported 
 2. In **My profile**, upload your resume, verify the extracted profile, and save the details the extension may use.
 3. In Chrome, open `chrome://extensions`, enable **Developer mode**, select **Load unpacked**, and choose this repository's `extension` folder. After an update, reload the extension and refresh job pages already open.
 4. Open a job posting from Neural Ant or the employer's career site. Click the Neural Ant extension icon, choose **Find application links**, select the correct employer application link, and click **Open selected application**. Only visible HTTPS links are offered; the extension does not click page buttons.
-5. On the application page, click the inline **Fill application** button or open the extension and choose **Fill this application**. Use **Save draft locally** after reviewing the supported fields; use **Restore saved draft** when returning to the same application page.
+5. On the application page, click the inline **Fill application** button or open the extension and choose **Fill this application**. Review the on-page checklist, then use **Save draft locally** after reviewing the supported fields; use **Restore saved draft** when returning to the same application page.
 6. Review every answer, attach the tailored resume yourself, complete personal attestations yourself, and submit manually.
 
 The extension fetches saved form-profile fields from Neural Ant at `127.0.0.1:8080` only after you click a fill action. Keep Neural Ant running locally. Chrome grants its content script access to HTTPS pages to detect application forms and inspect apply links when requested. The extension files are in `extension/`.

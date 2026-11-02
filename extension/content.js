@@ -65,8 +65,8 @@
       *{box-sizing:border-box}section{font:14px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#16251d;background:#fff;border:1px solid #dce8df;border-radius:14px;box-shadow:0 8px 32px #10271b33;padding:14px}
       header{display:flex;justify-content:space-between;align-items:center;font-weight:700;color:#19573c}small{display:block;color:#5d6d63;font-size:12px;margin:3px 0 10px}
       button{font:inherit;border:0;border-radius:8px;padding:8px 10px;cursor:pointer}button:disabled{opacity:.55;cursor:wait}#fill{background:#1d6b4d;color:#fff;font-weight:700}.secondary{background:#e9f2ec;color:#19573c;border:1px solid #d5e3d9}#close{background:transparent;color:#64736a;font-size:18px;padding:0 5px}
-      .actions{display:grid;grid-template-columns:1fr 1fr;gap:7px}.actions #fill{grid-column:1 / -1}#status{font-size:12px;color:#48564d;margin-top:8px;white-space:normal}
-    </style><section role="status"><header><span>Neural Ant · Application detected</span><button id="close" aria-label="Dismiss">×</button></header><small>1) Fill safe empty fields  2) Save or restore a local draft  3) Review and submit yourself.</small><div class="actions"><button id="fill">Fill application</button><button id="save" class="secondary">Save draft</button><button id="restore" class="secondary">Restore draft</button></div><div id="status"></div></section>`;
+      .actions{display:grid;grid-template-columns:1fr 1fr;gap:7px}.actions #fill{grid-column:1 / -1}#status{font-size:12px;color:#48564d;margin-top:8px;white-space:normal}.summary{display:none;margin-top:10px;padding-top:9px;border-top:1px solid #e7eee9;font-size:12px;color:#34443a;max-height:145px;overflow:auto}.summary.visible{display:block}.summary h3{font-size:12px;margin:0 0 5px;color:#19573c}.summary ul{margin:4px 0 8px;padding-left:17px}.summary li{margin:2px 0}.summary .warning h3{color:#9b5b13}
+    </style><section role="status"><header><span>Neural Ant · Application detected</span><button id="close" aria-label="Dismiss">×</button></header><small>1) Fill safe empty fields  2) Review the checklist  3) Save and submit yourself.</small><div class="actions"><button id="fill">Fill application</button><button id="save" class="secondary">Save draft</button><button id="restore" class="secondary">Restore draft</button></div><div id="status"></div><div id="summary" class="summary" aria-live="polite"></div></section>`;
     document.documentElement.appendChild(host);
     banner = { host, shadow };
     shadow.querySelector('#close').addEventListener('click', () => { dismissed = true; host.remove(); banner = undefined; });
@@ -93,6 +93,7 @@
     try {
       const profile = await fetchProfile();
       const result = fillFields(profile);
+      renderReviewSummary(result);
       const message = result.filled.length
         ? `Filled ${result.filled.length} field(s): ${result.filled.join(', ')}.`
         : 'No recognized empty fields found. Check My profile and the form labels.';
@@ -104,6 +105,46 @@
       if (statusNode) statusNode.textContent = error.message || 'Could not fill this page.';
     } finally {
       if (button) { button.disabled = false; button.textContent = 'Fill application'; }
+    }
+  }
+
+  function renderReviewSummary(result) {
+    const summary = banner?.shadow.querySelector('#summary');
+    if (!summary) return;
+    summary.replaceChildren();
+    summary.classList.add('visible');
+    const completed = document.createElement('div');
+    const completedTitle = document.createElement('h3');
+    completedTitle.textContent = `Prepared ${result.filled.length} field(s)`;
+    completed.appendChild(completedTitle);
+    if (result.filled.length) {
+      const list = document.createElement('ul');
+      for (const item of result.filled) {
+        const row = document.createElement('li');
+        row.textContent = item;
+        list.appendChild(row);
+      }
+      completed.appendChild(list);
+    } else {
+      const note = document.createElement('div');
+      note.textContent = 'No supported empty fields were found.';
+      completed.appendChild(note);
+    }
+    summary.appendChild(completed);
+    if (result.skipped.length) {
+      const warning = document.createElement('div');
+      warning.className = 'warning';
+      const warningTitle = document.createElement('h3');
+      warningTitle.textContent = `Needs your review (${result.skipped.length})`;
+      warning.appendChild(warningTitle);
+      const list = document.createElement('ul');
+      for (const item of result.skipped) {
+        const row = document.createElement('li');
+        row.textContent = item;
+        list.appendChild(row);
+      }
+      warning.appendChild(list);
+      summary.appendChild(warning);
     }
   }
 

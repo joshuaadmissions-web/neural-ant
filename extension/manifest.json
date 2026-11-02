@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Neural Ant RPA Assistant",
-  "version": "0.7.0",
-  "description": "A supervised local application helper: choose a link, fill supported fields, and save or restore drafts for review.",
+  "version": "0.8.0",
+  "description": "A supervised local application helper: choose a link, prepare supported fields, review the checklist, and save or restore drafts.",
   "permissions": [
     "activeTab",
     "storage"
