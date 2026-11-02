@@ -26,7 +26,7 @@ from fastapi.staticfiles import StaticFiles
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from pydantic import BaseModel, Field
 from pypdf import PdfReader
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, create_engine, func, inspect, select, text as sql_text
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, create_engine, func, inspect, or_, select, text as sql_text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 
@@ -1321,8 +1321,12 @@ def scheduled_search(x_cron_secret: str | None = Header(default=None), db: Sessi
 
 
 @app.get("/api/jobs")
-def get_jobs(min_score: int = 0, _: None = Depends(require_auth), db: Session = Depends(get_db)):
-    rows = db.scalars(select(JobRow).where(JobRow.fit_score >= max(0, min_score)).order_by(JobRow.fit_score.desc(), JobRow.first_seen.desc()).limit(300)).all()
+def get_jobs(min_score: int = 0, include_manual: bool = True, _: None = Depends(require_auth), db: Session = Depends(get_db)):
+    threshold = max(0, min_score)
+    conditions = [JobRow.fit_score >= threshold]
+    if include_manual:
+        conditions.append(JobRow.source == "Manual")
+    rows = db.scalars(select(JobRow).where(or_(*conditions)).order_by(JobRow.fit_score.desc(), JobRow.first_seen.desc()).limit(300)).all()
     return [public_job_payload(row) for row in rows]
 
 

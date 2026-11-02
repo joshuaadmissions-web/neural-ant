@@ -34,7 +34,7 @@ See the [setup and supported-fields guide](supervised-prototype/README.md) and [
 - Optional CSV import of employer-level H-1B/LCA historical evidence. Historical filings do not establish that a company will sponsor a specific role.
 - Reviewable resume drafts; optional external AI use requires a per-draft confirmation. The provider receives resume/profile/job text only after that confirmation.
 - Applications include a local, ATS-safe DOCX download named for the employer, role, and candidate. The file is a reviewable draft built only from confirmed profile and resume facts; it is not a guarantee of ATS passage or an interview.
-- Application pipeline and email alerts for new matching listings.
+- Application pipeline and email alerts for new matching listings. The dashboard also keeps direct/chat-imported roles visible below the fit threshold so a role found during research is not silently hidden.
 - Authenticated scheduled-search endpoint so a hosted scheduler can run searches while your computer is off.
 - Chrome extension prototype that saves visible application answers locally and restores them into empty fields when you reopen the same application page. Passwords and resume uploads are excluded; see [local draft behavior](docs/local-application-drafts.md).
 - Reusable application-profile fields and the evidence-based [application profile and resume research](docs/application-profile-research.md). The extension still pauses for credentials, consent, legal/work-authorization, demographic, signature, and job-specific questions.
