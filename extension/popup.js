@@ -1,6 +1,8 @@
 const findButton = document.querySelector('#find');
 const openButton = document.querySelector('#open');
 const fillButton = document.querySelector('#fill');
+const saveDraftButton = document.querySelector('#saveDraft');
+const restoreDraftButton = document.querySelector('#restoreDraft');
 const linksSelect = document.querySelector('#links');
 const status = document.querySelector('#status');
 
@@ -69,6 +71,28 @@ fillButton.addEventListener('click', async () => {
     fillButton.disabled = false;
   }
 });
+
+async function runDraftAction(type, button, label) {
+  button.disabled = true;
+  saveDraftButton.disabled = true;
+  restoreDraftButton.disabled = true;
+  status.textContent = `${label}…`;
+  try {
+    const tab = await activeTab();
+    const result = await chrome.tabs.sendMessage(tab.id, { type });
+    if (!result?.ok) throw new Error(result?.message || 'Open a job application page and try again.');
+    status.textContent = result.message || 'Draft action finished.';
+  } catch (error) {
+    status.textContent = error.message || 'Could not update the local draft. Refresh the page and try again.';
+  } finally {
+    button.disabled = false;
+    saveDraftButton.disabled = false;
+    restoreDraftButton.disabled = false;
+  }
+}
+
+saveDraftButton.addEventListener('click', () => runDraftAction('NEURAL_ANT_SAVE_DRAFT', saveDraftButton, 'Saving an eligible local draft'));
+restoreDraftButton.addEventListener('click', () => runDraftAction('NEURAL_ANT_RESTORE_DRAFT', restoreDraftButton, 'Looking for a saved local draft'));
 
 const clearDraftsButton = document.getElementById('clearDrafts');
 clearDraftsButton.addEventListener('click', async () => {

@@ -33,27 +33,31 @@
   let restoring = false;
   let timer;
   async function restore() {
-    if (restoring) return;
+    if (restoring) return { ok: false, message: 'A draft action is already running.' };
     restoring = true;
     try {
-      const saved = (await chrome.storage.local.get(keyFor()))[keyFor()];
-      if (!saved) return;
+      const key = keyFor();
+      const saved = (await chrome.storage.local.get(key))[key];
+      if (!saved) return { ok: true, restoredCount: 0, message: 'No saved draft was found for this application page.' };
       if (Date.now() - saved.updatedAt > 30 * 24 * 60 * 60 * 1000) {
-        await chrome.storage.local.remove(keyFor());
-        return;
+        await chrome.storage.local.remove(key);
+        return { ok: true, restoredCount: 0, message: 'The saved draft was more than 30 days old and was removed.' };
       }
       const fields = controls();
+      let restoredCount = 0;
       for (const [key, value] of Object.entries(saved.fields || {})) {
         const el = fields.find(candidate => identity(candidate) === key);
         if (!el) continue;
         const current = currentValue(el);
         const empty = (el.type === 'checkbox' || el.type === 'radio') ? current === false : !String(current || '').trim();
-        if (empty) setValue(el, value);
+        if (empty) { setValue(el, value); restoredCount += 1; }
       }
+      return { ok: true, restoredCount, updatedAt: saved.updatedAt,
+        message: restoredCount ? `Restored ${restoredCount} empty field(s) from the local draft.` : 'The draft exists, but no matching empty fields were found.' };
     } finally { restoring = false; }
   }
   async function save() {
-    if (restoring) return;
+    if (restoring) return { ok: false, message: 'A draft action is already running.' };
     const fields = {};
     for (const el of controls()) {
       const id = identity(el);
@@ -61,8 +65,26 @@
       const value = currentValue(el);
       if ((el.type === 'checkbox' || el.type === 'radio') ? value : String(value || '').trim()) fields[id] = value;
     }
-    await chrome.storage.local.set({ [keyFor()]: { fields, updatedAt: Date.now() } });
+    const updatedAt = Date.now();
+    await chrome.storage.local.set({ [keyFor()]: { fields, updatedAt } });
+    return { ok: true, savedCount: Object.keys(fields).length, updatedAt,
+      message: `Saved ${Object.keys(fields).length} eligible field(s) locally for this application page.` };
   }
+  document.addEventListener('NEURAL_ANT_DRAFT_ACTION', event => {
+    let request;
+    try { request = typeof event.detail === 'string' ? JSON.parse(event.detail) : event.detail; } catch { return; }
+    if (!request?.requestId || !['save', 'restore'].includes(request.action)) return;
+    const operation = request.action === 'save' ? save() : restore();
+    Promise.resolve(operation).then(result => {
+      document.dispatchEvent(new CustomEvent('NEURAL_ANT_DRAFT_RESULT', {
+        detail: JSON.stringify({ requestId: request.requestId, ...result }),
+      }));
+    }).catch(error => {
+      document.dispatchEvent(new CustomEvent('NEURAL_ANT_DRAFT_RESULT', {
+        detail: JSON.stringify({ requestId: request.requestId, ok: false, message: error.message || 'Could not update the local draft.' }),
+      }));
+    });
+  });
   document.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(save, 500); }, true);
   document.addEventListener('change', () => { clearTimeout(timer); timer = setTimeout(save, 250); }, true);
   restore();

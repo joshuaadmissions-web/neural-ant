@@ -59,18 +59,20 @@
     if (dismissed || banner || !isApplicationPage()) return;
     const host = document.createElement('div');
     host.id = 'neural-ant-assistant-host';
-    host.style.cssText = 'all:initial;position:fixed;z-index:2147483647;right:18px;bottom:18px;width:300px;height:116px;';
+    host.style.cssText = 'all:initial;position:fixed;z-index:2147483647;right:18px;bottom:18px;width:330px;height:auto;';
     const shadow = host.attachShadow({ mode: 'closed' });
     shadow.innerHTML = `<style>
       *{box-sizing:border-box}section{font:14px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#16251d;background:#fff;border:1px solid #dce8df;border-radius:14px;box-shadow:0 8px 32px #10271b33;padding:14px}
       header{display:flex;justify-content:space-between;align-items:center;font-weight:700;color:#19573c}small{display:block;color:#5d6d63;font-size:12px;margin:3px 0 10px}
-      button{font:inherit;border:0;border-radius:8px;padding:8px 12px;cursor:pointer}#fill{background:#1d6b4d;color:#fff;font-weight:700}#close{background:transparent;color:#64736a;font-size:18px;padding:0 5px}
-      #status{font-size:12px;color:#48564d;margin-top:8px;white-space:normal}
-    </style><section role="status"><header><span>Neural Ant · Application detected</span><button id="close" aria-label="Dismiss">×</button></header><small>Fill recognized fields from your saved profile. Review before submitting.</small><button id="fill">Fill application</button><div id="status"></div></section>`;
+      button{font:inherit;border:0;border-radius:8px;padding:8px 10px;cursor:pointer}button:disabled{opacity:.55;cursor:wait}#fill{background:#1d6b4d;color:#fff;font-weight:700}.secondary{background:#e9f2ec;color:#19573c;border:1px solid #d5e3d9}#close{background:transparent;color:#64736a;font-size:18px;padding:0 5px}
+      .actions{display:grid;grid-template-columns:1fr 1fr;gap:7px}.actions #fill{grid-column:1 / -1}#status{font-size:12px;color:#48564d;margin-top:8px;white-space:normal}
+    </style><section role="status"><header><span>Neural Ant · Application detected</span><button id="close" aria-label="Dismiss">×</button></header><small>1) Fill safe empty fields  2) Save or restore a local draft  3) Review and submit yourself.</small><div class="actions"><button id="fill">Fill application</button><button id="save" class="secondary">Save draft</button><button id="restore" class="secondary">Restore draft</button></div><div id="status"></div></section>`;
     document.documentElement.appendChild(host);
     banner = { host, shadow };
     shadow.querySelector('#close').addEventListener('click', () => { dismissed = true; host.remove(); banner = undefined; });
     shadow.querySelector('#fill').addEventListener('click', () => fillFromProfile(shadow.querySelector('#status')));
+    shadow.querySelector('#save').addEventListener('click', () => runDraftAction('save', shadow.querySelector('#status')));
+    shadow.querySelector('#restore').addEventListener('click', () => runDraftAction('restore', shadow.querySelector('#status')));
   }
 
   function scheduleDetection() {
@@ -102,6 +104,42 @@
       if (statusNode) statusNode.textContent = error.message || 'Could not fill this page.';
     } finally {
       if (button) { button.disabled = false; button.textContent = 'Fill application'; }
+    }
+  }
+
+  function requestDraftAction(action) {
+    return new Promise(resolve => {
+      const requestId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const onResult = event => {
+        let result;
+        try { result = typeof event.detail === 'string' ? JSON.parse(event.detail) : event.detail; } catch { return; }
+        if (result?.requestId !== requestId) return;
+        document.removeEventListener('NEURAL_ANT_DRAFT_RESULT', onResult);
+        resolve(result);
+      };
+      document.addEventListener('NEURAL_ANT_DRAFT_RESULT', onResult);
+      document.dispatchEvent(new CustomEvent('NEURAL_ANT_DRAFT_ACTION', {
+        detail: JSON.stringify({ requestId, action }),
+      }));
+      setTimeout(() => {
+        document.removeEventListener('NEURAL_ANT_DRAFT_RESULT', onResult);
+        resolve({ ok: false, message: 'The local draft helper did not respond. Refresh the page and try again.' });
+      }, 3000);
+    });
+  }
+
+  async function runDraftAction(action, statusNode) {
+    const button = banner?.shadow.querySelector(`#${action}`);
+    const otherButton = banner?.shadow.querySelector(`#${action === 'save' ? 'restore' : 'save'}`);
+    if (button) { button.disabled = true; button.textContent = action === 'save' ? 'Saving…' : 'Restoring…'; }
+    if (otherButton) otherButton.disabled = true;
+    if (statusNode) statusNode.textContent = action === 'save' ? 'Saving an eligible local draft…' : 'Looking for a saved local draft…';
+    try {
+      const result = await requestDraftAction(action);
+      if (statusNode) statusNode.textContent = result.message || 'Draft action finished.';
+    } finally {
+      if (button) { button.disabled = false; button.textContent = action === 'save' ? 'Save draft' : 'Restore draft'; }
+      if (otherButton) otherButton.disabled = false;
     }
   }
 
@@ -240,6 +278,12 @@
     if (message?.type === 'NEURAL_ANT_FIND_APPLY_LINKS') {
       sendResponse({ ok: true, links: findApplicationLinks() });
       return false;
+    }
+    if (message?.type === 'NEURAL_ANT_SAVE_DRAFT' || message?.type === 'NEURAL_ANT_RESTORE_DRAFT') {
+      if (!isApplicationPage()) { sendResponse({ ok: false, message: 'No job application form detected on this page.' }); return false; }
+      const action = message.type === 'NEURAL_ANT_SAVE_DRAFT' ? 'save' : 'restore';
+      requestDraftAction(action).then(result => sendResponse(result));
+      return true;
     }
     if (message?.type !== 'NEURAL_ANT_FILL') return false;
     if (!isApplicationPage()) { sendResponse({ ok: false, message: 'No job application form detected on this page.' }); return false; }

@@ -13,14 +13,16 @@
   #status{font-size:12px;margin-top:6px;white-space:pre-wrap}.note{font-size:11px;color:#6a756e;margin-top:12px}
 </style>
 <h1>Neural Ant RPA</h1>
-<p class="muted">Find an employer application link, open the one you choose, then fill recognized fields.</p>
+<p class="muted">Choose the employer link, open it, fill safe empty fields, then save a local draft for your review.</p>
 <button id="find">Find application links</button>
 <select id="links" aria-label="Application links" disabled><option value="">Find links on this page first</option></select>
 <button id="open" class="secondary" disabled>Open selected application</button>
 <hr>
 <button id="fill">Fill this application</button>
+<button id="saveDraft" class="secondary">Save draft locally</button>
+<button id="restoreDraft" class="secondary">Restore saved draft</button>
 <button id="clearDrafts" class="secondary">Clear saved drafts on this device</button>
 <div id="status" role="status"></div>
-<p class="note">The extension checks visible field labels and current values to avoid overwriting entries. It does not send your form contents anywhere. It never answers work-authorization or legal questions and never submits.</p>
+<p class="note">The extension checks visible labels and current values, fills only supported empty fields, and keeps eligible drafts on this device. It never creates accounts, uploads files, answers legal/work-authorization questions, or submits.</p>
 <script src="popup.js"></script>
 </html>
