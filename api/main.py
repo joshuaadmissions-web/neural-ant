@@ -864,7 +864,7 @@ def send_email(to_address: str, subject: str, body: str) -> bool:
         return False
 
 
-def run_search(db: Session) -> dict[str, Any]:
+def run_search(db: Session, *, send_alerts: bool = True) -> dict[str, Any]:
     profile = ensure_profile(db).data or DEFAULT_PROFILE
     sources = db.scalars(select(SourceRow).where(SourceRow.enabled.is_(True))).all()
     result = {"sources_checked": 0, "jobs_seen": 0, "jobs_saved": 0, "new_matches": 0, "alerts_sent": 0, "source_errors": []}
@@ -925,7 +925,7 @@ def run_search(db: Session) -> dict[str, Any]:
                 result["jobs_saved"] += 1
                 if fit >= int(profile.get("match_threshold") or 50):
                     result["new_matches"] += 1
-                    if profile.get("email_alerts") and profile.get("email"):
+                    if send_alerts and profile.get("email_alerts") and profile.get("email"):
                         already_sent = db.scalar(select(AlertRow).where(AlertRow.job_url == url))
                         if not already_sent:
                             body = (f"{title} — {job_company}\n\nFit score: {fit}%\n"
@@ -1014,9 +1014,8 @@ async def security_headers(request: Request, call_next):
     return response
 
 
-@app.on_event("startup")
-def initialize_database() -> None:
-    global _search_thread
+def ensure_database_schema() -> None:
+    """Create current tables and apply the small SQLite/Postgres column migrations."""
     Base.metadata.create_all(bind=engine)
     columns = {column["name"] for column in inspect(engine).get_columns("jobs")}
     if "employment_type" not in columns:
@@ -1025,6 +1024,12 @@ def initialize_database() -> None:
     if "fit_breakdown" not in columns:
         with engine.begin() as connection:
             connection.execute(sql_text("ALTER TABLE jobs ADD COLUMN fit_breakdown JSON DEFAULT '{}'"))
+
+
+@app.on_event("startup")
+def initialize_database() -> None:
+    global _search_thread
+    ensure_database_schema()
     with SessionLocal() as db:
         for job in db.scalars(select(JobRow)).all():
             if not job.employment_type or job.employment_type == "Not stated":

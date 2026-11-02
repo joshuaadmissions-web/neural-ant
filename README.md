@@ -38,6 +38,7 @@ See the [setup and supported-fields guide](supervised-prototype/README.md) and [
 - Authenticated scheduled-search endpoint so a hosted scheduler can run searches while your computer is off.
 - Chrome extension prototype that saves visible application answers locally and restores them into empty fields when you reopen the same application page. Passwords and resume uploads are excluded; see [local draft behavior](docs/local-application-drafts.md).
 - Reusable application-profile fields and the evidence-based [application profile and resume research](docs/application-profile-research.md). The extension still pauses for credentials, consent, legal/work-authorization, demographic, signature, and job-specific questions.
+- Optional local MCP bridge for Codex and VS Code clients to search saved job matches and inspect a posting. It does not expose resume text/contact details, submit applications, or open employer sites; see [local MCP setup](docs/local-mcp.md).
 - Product-growth direction is documented in the [Instagram scale scan](docs/instagram-scale-scan.md); it is a curated public-account study, not an exhaustive Instagram crawl.
 - Multilingual creator research and the implemented profile-readiness/freshness improvements are documented in the [multilingual creator scan](docs/multilingual-creator-scan.md).
 
@@ -121,6 +122,10 @@ Email is optional. Configure SMTP host, port, sender, credentials, and start-TLS
 ## Connect AI drafting (optional)
 
 By default, Neural Ant creates a local draft that reorders existing resume lines. To use an OpenAI-compatible provider, set `OPENAI_API_KEY`, `OPENAI_BASE_URL`, and `OPENAI_MODEL` in the server secret configuration. The app asks for confirmation each time before sending resume, profile, and job text to that provider. Generated content remains a draft and must be checked against your resume.
+
+## Connect a local AI client through MCP
+
+The optional MCP bridge gives a local AI client two tools for searching saved job listings and reading a selected posting. It uses stdio and opens no network port. The tools can return job information and a fit score calculated from the saved profile; they never return resume text, contact details, or the saved profile. A requested refresh checks only configured public job sources and does not send email alerts. Read [local MCP setup and privacy notes](docs/local-mcp.md) before enabling the bridge.
 
 ## Navigate and fill application forms with browser RPA
 

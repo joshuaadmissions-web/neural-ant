@@ -1,0 +1,10 @@
+{
+  "servers": {
+    "neural-ant": {
+      "type": "stdio",
+      "command": "${workspaceFolder}/.venv/bin/python",
+      "args": ["${workspaceFolder}/mcp_server.py"],
+      "cwd": "${workspaceFolder}"
+    }
+  }
+}
