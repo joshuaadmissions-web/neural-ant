@@ -1,8 +1,121 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Neural Ant · Private workspace</title><link rel="stylesheet" href="/style.css"></head><body>
-<header><div class="brand">◈ Neural Ant</div><span class="pill">LOCAL · SUPERVISED</span></header>
-<main><h1>Your next role.<br><span>Prepared with evidence.</span></h1><p class="lede">Confirm your experience, inspect opportunities, and prepare an application you control.</p><div class="notice">Private on this computer. No external AI. You review, attach, sign, and submit every application.</div>
-<p id="status" role="status"></p>
-<section><h2>01 / Confirm your resume</h2><p>Upload TXT, Markdown, text-based PDF, or DOCX (5 MB max). Your original stays untouched. Extraction is a draft: correct every field and factual line before confirming.</p><input id="upload" type="file" accept=".txt,.md,.pdf,.docx"><button id="demo">Use synthetic demo</button><a href="/api/original" id="original" hidden>Download untouched original</a><div id="intake"></div></section>
-<section><h2>02 / Discover & verify</h2><p>Configured Greenhouse and Lever boards only. Salary must have an explicit annual USD base minimum of $100,000. Unknowns require review. Explicit no-sponsorship roles are excluded.</p><button id="scout">Check configured public boards</button><button id="fixtures" class="secondary">Load synthetic job fixtures</button><label class="inline"><input type="checkbox" id="all"> Show non-target and excluded postings</label><details><summary>Source check ledger</summary><pre id="checks"></pre></details><div id="jobs"></div></section>
-<section><h2>03 / Review & prepare</h2><div id="draft"><p>Select a posting to create a separate tailored draft.</p></div><h3>Chrome extension handoff</h3><p>After reviewing a draft, export only the allowed contact profile and import it in the extension. Open the application, click <strong>Fill empty fields</strong>, then <strong>Save eligible answers</strong>. Reopen the same application and click <strong>Restore empty fields</strong>. Draft status and return links appear in the extension.</p><button id="export">Export contact profile</button> <a href="/test-application" target="_blank" rel="noopener">Open controlled test form</a><p class="muted">Manually attach your reviewed resume, complete sensitive/legal questions, verify all answers, and submit. Never export credentials or authorization answers.</p></section>
-<section><h2>Visible workflow</h2><p>Job Scout → Posting Verifier → Fit Reviewer → Resume Tailor → Application Prep Assistant. These are local, deterministic tasks with recorded handoffs.</p><div id="workflow"></div></section></main><footer>Neural Ant / Private supervised prototype</footer><script src="/app.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0b1219">
+  <title>Neural Ant · Private workspace</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to workspace</a>
+  <div class="ambient ambient-one" aria-hidden="true"></div>
+  <div class="ambient ambient-two" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="Neural Ant home">
+      <span class="brand-mark" aria-hidden="true">N</span>
+      <span>Neural Ant</span>
+    </a>
+    <div class="header-meta">
+      <span class="privacy-dot" aria-hidden="true"></span>
+      <span>Private workspace</span>
+      <span class="pill">LOCAL · SUPERVISED</span>
+    </div>
+  </header>
+
+  <main id="main-content">
+    <section class="hero" aria-labelledby="page-title">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="eyebrow-line"></span> Application prep, with a human in the loop</p>
+        <h1 id="page-title">Your next role.<br><span>Prepared with evidence.</span></h1>
+        <p class="lede">Confirm your experience, inspect opportunities, and prepare an application you control.</p>
+        <div class="hero-actions" aria-label="Workspace shortcuts">
+          <a class="button button-primary" href="#resume">Start with your resume <span aria-hidden="true">↓</span></a>
+          <a class="text-link" href="#workflow-section">See the workflow <span aria-hidden="true">↗</span></a>
+        </div>
+      </div>
+      <aside class="hero-panel" aria-label="Privacy promise">
+        <div class="panel-kicker"><span class="shield" aria-hidden="true">✦</span> Your review is the control point</div>
+        <p>No external AI. No background submissions. Every fact, answer, attachment, and final click stays yours.</p>
+        <div class="panel-rule"></div>
+        <div class="panel-foot"><span>Loopback only</span><span>·</span><span>Deterministic tasks</span></div>
+      </aside>
+    </section>
+
+    <nav class="progress-nav" aria-label="Workspace steps">
+      <a href="#resume"><span>01</span><strong>Confirm</strong><small>your resume</small></a>
+      <span class="progress-arrow" aria-hidden="true">→</span>
+      <a href="#discover"><span>02</span><strong>Discover</strong><small>and verify</small></a>
+      <span class="progress-arrow" aria-hidden="true">→</span>
+      <a href="#prepare"><span>03</span><strong>Review</strong><small>and prepare</small></a>
+    </nav>
+
+    <div class="notice notice-prominent" role="note">
+      <span class="notice-icon" aria-hidden="true">✓</span>
+      <div><strong>Private on this computer.</strong> You review, attach, sign, and submit every application.</div>
+      <span class="notice-label">No auto-submit</span>
+    </div>
+    <p id="status" role="status" aria-live="polite" aria-atomic="true"></p>
+
+    <section id="resume" class="workspace-section" aria-labelledby="resume-title">
+      <div class="section-heading">
+        <div class="step-number">01</div>
+        <div><p class="section-kicker">Foundation</p><h2 id="resume-title">Confirm your resume</h2></div>
+        <span class="section-state">Required first</span>
+      </div>
+      <div class="section-body">
+        <div class="section-intro"><p>Upload TXT, Markdown, text-based PDF, or DOCX up to 5 MB. Your original stays untouched. Extraction is a draft—correct every field and factual line before confirming.</p></div>
+        <div class="upload-row">
+          <label class="file-picker" for="upload"><span class="file-icon" aria-hidden="true">↑</span><span><strong>Choose a resume</strong><small>TXT, MD, PDF, or DOCX · 5 MB max</small></span><input id="upload" type="file" accept=".txt,.md,.pdf,.docx" aria-describedby="upload-help"></label>
+          <span id="upload-help" class="sr-only">The file is processed locally and the original is preserved.</span>
+          <button id="demo" class="button button-secondary" type="button">Use synthetic demo</button>
+        </div>
+        <div class="inline-links"><a href="/api/original" id="original" hidden>Download untouched original ↗</a></div>
+        <div id="intake"></div>
+      </div>
+    </section>
+
+    <section id="discover" class="workspace-section" aria-labelledby="discover-title">
+      <div class="section-heading">
+        <div class="step-number">02</div>
+        <div><p class="section-kicker">Evidence check</p><h2 id="discover-title">Discover &amp; verify</h2></div>
+        <span class="section-state">Review before matching</span>
+      </div>
+      <div class="section-body">
+        <div class="section-intro"><p>Configured Greenhouse and Lever boards only. Salary needs explicit annual USD base evidence of at least $100,000. Unknowns remain visible for your review; explicit no-sponsorship roles are excluded.</p></div>
+        <div class="action-bar">
+          <div class="action-buttons"><button id="scout" class="button button-primary" type="button">Check configured boards <span aria-hidden="true">↗</span></button><button id="fixtures" class="button button-secondary" type="button">Load synthetic fixtures</button></div>
+          <label class="switch-label"><input type="checkbox" id="all"><span class="switch" aria-hidden="true"></span><span>Show non-target and excluded postings</span></label>
+        </div>
+        <details class="ledger"><summary><span>Source check ledger</span><span class="summary-hint">Local audit trail</span></summary><pre id="checks"></pre></details>
+        <div id="jobs" class="results-stack"></div>
+      </div>
+    </section>
+
+    <section id="prepare" class="workspace-section" aria-labelledby="prepare-title">
+      <div class="section-heading">
+        <div class="step-number">03</div>
+        <div><p class="section-kicker">Human review</p><h2 id="prepare-title">Review &amp; prepare</h2></div>
+        <span class="section-state">You decide</span>
+      </div>
+      <div class="section-body">
+        <div id="draft" class="draft-surface"><p>Select a posting to create a separate tailored draft.</p></div>
+        <div class="handoff-card">
+          <div class="handoff-icon" aria-hidden="true">⌁</div>
+          <div><p class="section-kicker">Chrome extension handoff</p><h3>Carry only what is eligible</h3><p>After reviewing a draft, export only the allowed contact profile and import it in the extension. Fill empty fields, save eligible answers, then reopen the same application to restore them later.</p><div class="handoff-actions"><button id="export" class="button button-primary" type="button">Export contact profile</button><a class="button button-secondary" href="/test-application" target="_blank" rel="noopener">Open controlled test form ↗</a></div><p class="muted">Manually attach your reviewed resume, complete sensitive/legal questions, verify every answer, and submit. Never export credentials or authorization answers.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="workflow-section" class="workflow-section" aria-labelledby="workflow-title">
+      <div class="section-heading section-heading-compact"><div><p class="section-kicker">Recorded handoffs</p><h2 id="workflow-title">A visible, deterministic workflow</h2></div><span class="workflow-mark" aria-hidden="true">01—05</span></div>
+      <p class="workflow-intro">Job Scout → Posting Verifier → Fit Reviewer → Resume Tailor → Application Prep Assistant. Each local task leaves an auditable handoff.</p>
+      <div id="workflow" class="workflow-list" aria-live="polite"></div>
+    </section>
+  </main>
+
+  <footer class="site-footer"><span>Neural Ant</span><span>Private supervised prototype</span><span>Loopback · no telemetry</span></footer>
+  <script src="/app.js"></script>
+</body>
+</html>

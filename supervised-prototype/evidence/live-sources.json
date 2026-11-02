@@ -1,5 +1,5 @@
 {
-  "runAt": "2026-10-31T17:35:51.850Z",
+  "runAt": "2026-11-02T04:19:00.960Z",
   "checks": [
     {
       "source": {
@@ -7,9 +7,9 @@
         "board": "anthropic",
         "employer": "Anthropic"
       },
-      "checkedAt": "2026-10-31T17:35:50.496Z",
+      "checkedAt": "2026-11-02T04:18:59.831Z",
       "status": "ok",
-      "count": 675,
+      "count": 673,
       "url": "https://boards-api.greenhouse.io/v1/boards/anthropic/jobs?content=true"
     },
     {
@@ -18,7 +18,7 @@
         "board": "rigetti",
         "employer": "Rigetti"
       },
-      "checkedAt": "2026-10-31T17:35:51.001Z",
+      "checkedAt": "2026-11-02T04:19:00.331Z",
       "status": "ok",
       "count": 16,
       "url": "https://api.lever.co/v0/postings/rigetti?mode=json"
@@ -33,9 +33,9 @@
       },
       "title": "Applied AI Demo Engineer",
       "url": "https://job-boards.greenhouse.io/anthropic/jobs/5455961008",
-      "checkedAt": "2026-10-31T17:35:51.495Z",
+      "checkedAt": "2026-11-02T04:19:00.814Z",
       "verification": "individual published API posting",
-      "openEvidence": "Individual job endpoint returned HTTP 200 at 2026-10-31T17:35:51.495Z",
+      "openEvidence": "Individual job endpoint returned HTTP 200 at 2026-11-02T04:19:00.814Z",
       "salary": "unverified"
     },
     {
@@ -46,13 +46,13 @@
       },
       "title": "Deployment Infrastructure Engineer",
       "url": "https://jobs.lever.co/rigetti/4e731d11-c3d4-43fd-b292-966129e1bfc2",
-      "checkedAt": "2026-10-31T17:35:51.593Z",
+      "checkedAt": "2026-11-02T04:19:00.878Z",
       "verification": "individual published API posting",
-      "openEvidence": "Individual job endpoint returned HTTP 200 at 2026-10-31T17:35:51.593Z",
+      "openEvidence": "Individual job endpoint returned HTTP 200 at 2026-11-02T04:19:00.878Z",
       "salary": "unverified"
     }
   ],
-  "totalPublished": 691,
+  "totalPublished": 689,
   "targetTitles": 24,
   "disclaimer": "Live public source API checks only. No candidate data transmitted. Employer forms were not submitted or filled."
 }
