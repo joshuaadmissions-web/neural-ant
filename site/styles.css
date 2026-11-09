@@ -11,3 +11,35 @@
 @media(max-width:850px){.hero{grid-template-columns:1fr;gap:18px;padding-top:70px}.hero-copy{padding-top:0}.hero-visual{height:420px}.hero-index{bottom:22px}.section-heading{align-items:flex-start;flex-direction:column;gap:14px}.section-intro{max-width:500px}.setup-card{grid-template-columns:1fr;gap:30px}.setup-steps{border-left:0;border-top:1px solid #1c2c1f2b;padding:12px 0 0}}
 @media(max-width:620px){.wrap{width:calc(100% - 36px)}.topbar{height:66px;padding:0 18px}.topbar nav{display:none}.nav-cta{padding:8px 10px;font-size:10px}.hero{min-height:0;padding-top:56px;padding-bottom:62px}.hero h1{font-size:clamp(43px,13vw,62px)}.lead{font-size:15px}.hero-actions{align-items:flex-start;flex-direction:column;gap:16px}.hero-note{margin-top:28px;align-items:flex-start}.hero-visual{height:370px;margin:6px -10px 0}.flow-stack{width:92%}.flow-node{height:58px;padding:8px}.flow-node strong{font-size:10px}.node-icon{width:31px;height:31px}.live-pill{font-size:7px}.orbit-a{width:390px}.orbit-b{width:330px}.visual-tag{left:8px}.visual-caption{left:3px;right:3px;font-size:8px}.hero-index span{display:block;margin:8px 0 0}.workflow-section,.principles-section{padding:70px 0}.workflow-grid{grid-template-columns:1fr}.stage-list{border-right:0;border-bottom:1px solid #15221c2b}.stage-tab{min-height:66px;padding:12px 13px}.stage-panel{margin:14px 0;padding:23px 20px;min-height:280px}.principle-grid{grid-template-columns:1fr}.principle-card,.principle-card+article{min-height:auto;padding:20px 0;border-right:0;border-bottom:1px solid #ffffff28}.principle-card:last-child{border-bottom:0}.principle-icon{margin:13px 0 8px}.setup-section{padding:50px 0}.setup-card{padding:27px 20px;gap:25px}.setup-card h2{font-size:37px}.setup-steps{padding-top:4px}.footer{padding-top:20px;padding-bottom:20px;gap:8px;align-items:flex-start;flex-direction:column}.footer p{margin:3px 0}.footer>div{margin-top:8px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{transition:none!important;animation:none!important}}
+
+/* Neural Ant brand system: navy anchors, cream reading surfaces, coral actions. */
+:root{--ink:#14213D;--ink-soft:#1d2d4c;--paper:#F4EDE0;--white:#fffaf2;--muted:#c5ccda;--green:#FF6B5B;--green-dark:#14213D;--line:#ffffff2c}
+.topbar nav a:hover,.footer a:hover{color:#FF6B5B}
+.nav-cta{border-color:#FF6B5B;color:#F4EDE0}
+.nav-cta span{color:#FF6B5B}
+.hero{background-color:#14213D}
+.hero h1 em{color:#FF6B5B}
+.button.primary{background:#FF6B5B;color:#14213D}
+.button.primary:hover{background:#ff8173}
+.pulse,.status-dot{background:#FF6B5B;box-shadow:0 0 12px rgba(255,107,91,.48)}
+.hero-note .lock,.hero-index,.quiet-link span{color:#FF6B5B;background:transparent}
+.hero-visual:before{background:radial-gradient(circle,rgba(255,107,91,.2) 0,transparent 68%)}
+.orbit{border-color:rgba(255,107,91,.24)}
+.orbit-a,.orbit-b{border-color:rgba(255,107,91,.2)}
+.flow-node{background:#1b2b49;border-color:#ffffff32}
+.node-icon{color:#FF6B5B}
+.node-check,.live-pill{color:#FF6B5B}
+.live-pill{border-color:rgba(255,107,91,.5)}
+.workflow-section,.setup-section{background:#F4EDE0;color:#14213D}
+.section-heading h2 em,.setup-card h2 em{color:#FF6B5B}
+.stage-tab:hover,.stage-tab.active{background:#fffaf2}
+.stage-tab.active{box-shadow:inset 3px 0 #FF6B5B}
+.stage-tab.active i,.mini-arrow{color:#FF6B5B}
+.stage-panel,.principles-section{background:#14213D}
+.panel-kicker,.panel-mark span,.principle-icon,.principles-section .section-heading h2 em{color:#FF6B5B}
+.setup-card{background:#fffaf2}
+.setup-steps code{background:#F4EDE0;color:#14213D}
+.setup-steps div b{color:#14213D}
+.brand b{color:#FF6B5B}
+.brand-mark i{background:#FF6B5B}
+.scope-note span{color:#14213D}

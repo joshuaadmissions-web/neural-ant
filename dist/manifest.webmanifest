@@ -6,12 +6,12 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f6f6f2",
-  "theme_color": "#f6f6f2",
+  "background_color": "#F4EDE0",
+  "theme_color": "#14213D",
   "categories": ["business", "productivity"],
   "icons": [
     {
-      "src": "/neural-ant-icon.svg",
+      "src": "/neural-ant-icon.svg?v=palette-20261109",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
