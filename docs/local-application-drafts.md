@@ -12,4 +12,6 @@ The extension excludes password, hidden, file-upload, submit, button, and reset 
 4. Close the page. Later, reopen the same employer application URL in the same Chrome profile; saved answers are restored into empty matching fields.
 5. Review all fields, reattach your resume, complete required attestations/signature, and submit yourself. Use **Clear saved drafts on this device** in the extension popup to delete Neural Ant drafts.
 
+When you choose **Fill application**, the extension fills supported empty fields from your saved profile. It then highlights any still-empty required questions it can identify on that page so you can answer them directly in the employer form. Those answers are not sent to Neural Ant or saved by this prompt. It still leaves authorization, sponsorship, legal, demographic, file upload, and other unsupported fields to you.
+
 This is a best-effort prototype. Employer sites can change form structure, route, or labels. A different application URL/path may produce a separate draft; dynamic multi-page forms may not restore every field. Never rely on this feature as the only copy of an application.

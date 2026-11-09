@@ -1,6 +1,6 @@
 # Neural Ant — private supervised prototype
 
-A single-user local app and Chrome extension. All resume parsing, matching, and tailoring run locally. There is no AI-provider integration, telemetry, remote database, submission API, or deployment configuration. No agents are hired: the five visible roles are deterministic workflow tasks with an audit trail.
+A single-user local app and Chrome extension. All resume parsing, matching, and tailoring run locally. There is no AI-provider integration, telemetry, remote database, submission API, or deployment configuration. No agents are hired: the five visible roles are deterministic workflow tasks with an audit trail. The extension can optionally sync only allowlisted contact fields from the main Neural Ant app at `127.0.0.1:8080`; application drafts remain local to this extension.
 
 ## Run locally
 
@@ -39,11 +39,11 @@ The latest live check counts and timestamps are in `evidence/live-sources.json`.
 
 ## Chrome extension installation and use
 
-1. Open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select the `extension/` folder from this project.
+1. Open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select the `extension/` folder from this project. The extension uses temporary access to the active tab only; it does not request host permissions.
 2. Pin Neural Ant. After changing code, click **Reload** on its extension card and refresh the application tab. Use one Chrome profile; local drafts do not sync to other profiles/devices.
-3. In the local app, confirm resume facts and review a tailored draft. Click **Export contact profile**. Open the extension and import that JSON. The importer discards every non-allowlisted key. Delete the exported file from Downloads when you no longer need it.
+3. Keep the main Neural Ant app running at `http://127.0.0.1:8080`. Open its tab, click the extension, then click **Sync my Neural Ant profile**. It reads only name, email, phone, city, state, LinkedIn, and website fields, then stores those allowlisted values in this Chrome profile. It does not copy the resume file, work-authorization answers, or sponsorship answers. JSON contact-profile import remains available as a fallback.
 4. On a supported application tab, click the extension toolbar icon, then **Fill empty fields**. Opening the popup grants Chrome's temporary active-tab access. There is no background filling or broad host permission.
-5. Review the filled answers. Enter any additional eligible contact answers manually and click **Save eligible answers**. The extension shows a saved timestamp, eligible-field count, and a return link. A save replaces the prior snapshot for that application.
+5. Review the filled answers. The extension flags empty required questions it can identify so you can answer them directly in the employer form; it does not save those responses. Enter any additional eligible contact answers manually and click **Save eligible answers**. The extension shows a saved timestamp, eligible-field count, and a return link. A save replaces the prior snapshot for that application.
 6. Close and reopen the browser in the same profile. Use the extension's return link; open the popup on that application tab and click **Restore empty fields**. Existing values, including whitespace, are preserved.
 7. Complete everything else yourself. **Delete local profile & drafts** erases extension data when desired.
 
@@ -57,7 +57,7 @@ Supported direct pages:
 
 Query strings and fragments are never saved. Greenhouse embedded/custom career sites, other hosts, account pages, EU Lever, iframes, shadow DOM, dropdowns, React widgets that ignore standard input events, and custom multi-step application state are unsupported. Normal React inputs receive native setter/input/change events, but employer-specific behavior has not been validated. Unsupported behavior yields zero fills or a supported-page message; complete those fields manually. Never attempt security bypasses.
 
-Allowed fields are **full name, first name, last name, email, phone, location/city, LinkedIn URL, and website/portfolio URL**. They must be visible, enabled, editable text/email/tel/url inputs with an exact recognized label (or exact name/ID when unlabeled). Unknown labels are skipped even if an internal ID resembles an allowed field. Sensitive labels, descriptions and fieldset legends override the allowlist. Only HTTPS URLs without credentials, queries or fragments are retained as website values. No textarea/freeform answers are supported.
+Allowed fields are **full name, first name, last name, email, phone, location/city, state, LinkedIn URL, and website/portfolio URL**. They must be visible, enabled, editable text/email/tel/url inputs with an exact recognized label (or exact name/ID when unlabeled). Unknown labels are skipped even if an internal ID resembles an allowed field. Sensitive labels, descriptions and fieldset legends override the allowlist. Only HTTPS URLs without credentials, queries or fragments are retained as website values. No textarea/freeform answers are supported. Existing values are preserved except for exact synthetic demo placeholders, which are replaced with the synced profile values.
 
 The extension never fills or stores authorization, sponsorship, visas, SSN, demographics, background checks, signatures, legal attestations/consents, passwords, tokens, uploaded files, security codes, or other sensitive/legal fields. It does not click submission buttons, create accounts, solve CAPTCHA or bypass verification. Saved drafts are restricted to validated contact values and a canonical public application URL.
 

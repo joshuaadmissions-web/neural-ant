@@ -57,6 +57,92 @@ def _section(lines: list[str], heading: str, end_heading: str | None = None) -> 
     return lines[start:end]
 
 
+def _draft_summary(draft_content: str) -> str:
+    lines = [re.sub(r"^\s*#+\s*", "", line).strip() for line in _text(draft_content).splitlines()]
+    start = None
+    for index, line in enumerate(lines):
+        if line.casefold().rstrip(":") in {"professional summary", "summary", "profile"}:
+            start = index + 1
+            break
+    if start is None:
+        return ""
+    values: list[str] = []
+    for line in lines[start:]:
+        if not line:
+            if values:
+                break
+            continue
+        if line.casefold().rstrip(":") in {"core skills", "skills", "professional experience", "experience", "projects", "education", "facts to verify"}:
+            break
+        cleaned = _clean_line(line)
+        if cleaned:
+            values.append(cleaned)
+    return " ".join(values)[:700]
+
+
+def _draft_sections(draft_content: str) -> dict[str, list[str]]:
+    aliases = {
+        "professional summary": "Professional Summary",
+        "summary": "Professional Summary",
+        "profile": "Professional Summary",
+        "core skills": "Core Skills",
+        "skills": "Core Skills",
+        "technical skills": "Core Skills",
+        "professional experience": "Professional Experience",
+        "work experience": "Professional Experience",
+        "experience": "Professional Experience",
+        "projects": "Projects",
+        "selected projects": "Projects",
+        "education": "Education",
+        "certifications": "Certifications",
+    }
+    sections: dict[str, list[str]] = {}
+    current: str | None = None
+    skipping = False
+    for raw in _text(draft_content).splitlines():
+        line = re.sub(r"^\s*#+\s*", "", raw).strip()
+        line = line.strip("*_` ").rstrip(":").strip()
+        if not line or line.startswith("```"):
+            continue
+        normalized = re.sub(r"\s+", " ", line).casefold()
+        if normalized in aliases:
+            current = aliases[normalized]
+            sections.setdefault(current, [])
+            skipping = False
+            continue
+        if normalized in {"facts to verify", "review notes", "manual checks", "notes to candidate", "cover letter"}:
+            current = None
+            skipping = True
+            continue
+        if skipping or current is None or normalized in {"resume", "tailored resume"}:
+            continue
+        bullet = re.match(r"^(?:[-*•▪◦])\s+(.+)$", line)
+        if bullet:
+            line = bullet.group(1).strip()
+        line = re.sub(r"\*\*(.*?)\*\*|__(.*?)__", lambda match: match.group(1) or match.group(2) or "", line)
+        line = line.replace("`", "").strip()
+        if line and line != "[Candidate]":
+            sections[current].append(("• " if bullet else "") + line)
+    return {name: values for name, values in sections.items() if values}
+
+
+def _render_draft_resume(document: Document, draft_content: str) -> bool:
+    sections = _draft_sections(draft_content)
+    if len(sections) < 2 or not ({"Core Skills", "Professional Experience", "Projects", "Education"} & sections.keys()):
+        return False
+    for section_name, lines in sections.items():
+        _section_heading(document, section_name)
+        for line in lines:
+            paragraph = document.add_paragraph()
+            is_bullet = line.startswith("• ")
+            _compact_paragraph(paragraph, after=0, line_spacing=0.88)
+            if is_bullet:
+                paragraph.paragraph_format.left_indent = Inches(0.18)
+                paragraph.paragraph_format.first_line_indent = Inches(-0.18)
+            _set_run_font(paragraph.add_run(line))
+    return True
+
+
 def _split_company_location(value: str) -> tuple[str, str]:
     value = _clean_line(value)
     match = re.search(r",\s*(?P<region>[A-Z]{2}|India|Canada|United States)$", value)
@@ -218,10 +304,12 @@ def _relevance_score(value: str, terms: list[str], job_description: str) -> int:
     return sum(1 for term in terms if term in job_lower and term in lower)
 
 
-def _set_run_font(run, size: float = BODY_SIZE, bold: bool = False, italic: bool = False) -> None:
-    run.font.name = "Times New Roman"
-    run._element.get_or_add_rPr().rFonts.set(qn("w:eastAsia"), "Times New Roman")
-    run.font.size = Pt(size)
+def _set_run_font(run, size: float | None = None, bold: bool = False, italic: bool = False) -> None:
+    # Let the document's Normal style provide the font. This keeps the default
+    # resume Times New Roman while allowing a registered Word template to supply
+    # its own typeface and body size.
+    if size is not None:
+        run.font.size = Pt(size)
     run.font.bold = bold
     run.font.italic = italic
     run.font.color.rgb = RGBColor(0, 0, 0)
@@ -255,8 +343,13 @@ def _section_heading(document: Document, label: str) -> None:
     _set_run_font(paragraph.add_run(label), size=13.4)
 
 
-def _right_tab(paragraph) -> None:
-    paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(CONTENT_WIDTH_IN), WD_TAB_ALIGNMENT.RIGHT)
+def _content_width(document: Document) -> float:
+    section = document.sections[0]
+    return max(4.0, section.page_width.inches - section.left_margin.inches - section.right_margin.inches)
+
+
+def _right_tab(paragraph, document: Document) -> None:
+    paragraph.paragraph_format.tab_stops.add_tab_stop(Inches(_content_width(document)), WD_TAB_ALIGNMENT.RIGHT)
 
 
 def _add_role(document: Document, record: dict[str, Any], terms: list[str], job_description: str) -> None:
@@ -268,7 +361,7 @@ def _add_role(document: Document, record: dict[str, Any], terms: list[str], job_
     heading = document.add_paragraph()
     _compact_paragraph(heading, before=1, after=0, line_spacing=0.88)
     heading.paragraph_format.keep_with_next = True
-    _right_tab(heading)
+    _right_tab(heading, document)
     _set_run_font(heading.add_run("• "))
     _set_run_font(heading.add_run(company), bold=True)
     if location:
@@ -278,7 +371,7 @@ def _add_role(document: Document, record: dict[str, Any], terms: list[str], job_
     _compact_paragraph(role_line, after=0, line_spacing=0.86)
     role_line.paragraph_format.keep_with_next = True
     role_line.paragraph_format.left_indent = Inches(0.15)
-    _right_tab(role_line)
+    _right_tab(role_line, document)
     _set_run_font(role_line.add_run(title), italic=True)
     if dates:
         _set_run_font(role_line.add_run(f"\t{dates}"), italic=True)
@@ -310,7 +403,7 @@ def _add_education(document: Document, record: dict[str, str]) -> None:
     school_line = document.add_paragraph()
     _compact_paragraph(school_line, before=1, after=0, line_spacing=0.88)
     school_line.paragraph_format.keep_with_next = True
-    _right_tab(school_line)
+    _right_tab(school_line, document)
     _set_run_font(school_line.add_run("• "))
     _set_run_font(school_line.add_run(_text(record.get("school"))), bold=True)
     if _text(record.get("location")):
@@ -319,29 +412,46 @@ def _add_education(document: Document, record: dict[str, str]) -> None:
     degree_line = document.add_paragraph()
     _compact_paragraph(degree_line, after=0, line_spacing=0.86)
     degree_line.paragraph_format.left_indent = Inches(0.15)
-    _right_tab(degree_line)
+    _right_tab(degree_line, document)
     _set_run_font(degree_line.add_run(_text(record.get("degree"))), italic=True)
     dates = " – ".join(part for part in (_text(record.get("start_date")), _text(record.get("end_date"))) if part)
     if dates:
         _set_run_font(degree_line.add_run(f"\t{dates}"), italic=True)
 
 
-def build_resume_docx(profile: dict[str, Any], job: Any, draft_content: str, source_text: str = "") -> bytes:
-    document = Document()
+def build_resume_docx(
+    profile: dict[str, Any],
+    job: Any,
+    draft_content: str,
+    source_text: str = "",
+    template_bytes: bytes | None = None,
+) -> bytes:
+    document = Document(io.BytesIO(template_bytes)) if template_bytes else Document()
     section = document.sections[0]
-    section.page_width = Inches(8.5)
-    section.page_height = Inches(11)
-    section.top_margin = Inches(0.38)
-    section.bottom_margin = Inches(0.38)
-    section.left_margin = Inches(0.55)
-    section.right_margin = Inches(0.55)
-    section.header_distance = Inches(0.2)
-    section.footer_distance = Inches(0.2)
+    if template_bytes:
+        # Keep the template's page setup, headers, footers, theme, and styles;
+        # clear sample body content before inserting candidate-specific text.
+        body = document._element.body
+        for child in list(body):
+            if child.tag != qn("w:sectPr"):
+                body.remove(child)
+    else:
+        section.page_width = Inches(8.5)
+        section.page_height = Inches(11)
+        section.top_margin = Inches(0.38)
+        section.bottom_margin = Inches(0.38)
+        section.left_margin = Inches(0.55)
+        section.right_margin = Inches(0.55)
+        section.header_distance = Inches(0.2)
+        section.footer_distance = Inches(0.2)
 
     normal = document.styles["Normal"]
-    normal.font.name = "Times New Roman"
-    normal._element.rPr.rFonts.set(qn("w:eastAsia"), "Times New Roman")
-    normal.font.size = Pt(BODY_SIZE)
+    if not template_bytes:
+        normal.font.name = "Times New Roman"
+        normal._element.rPr.rFonts.set(qn("w:eastAsia"), "Times New Roman")
+        normal.font.size = Pt(BODY_SIZE)
+    elif normal.font.name:
+        normal._element.rPr.rFonts.set(qn("w:eastAsia"), normal.font.name)
     normal.font.color.rgb = RGBColor(0, 0, 0)
     normal.paragraph_format.space_after = Pt(0)
     normal.paragraph_format.line_spacing = 0.92
@@ -370,38 +480,102 @@ def build_resume_docx(profile: dict[str, Any], job: Any, draft_content: str, sou
         _compact_paragraph(contact, after=0, line_spacing=0.82)
         _set_run_font(contact.add_run(value), size=10.1)
 
-    skills = _source_skills(source_text, profile)
     job_description = _text(getattr(job, "description", ""))
     terms = _relevance_terms(profile, job, source_text)
-    skills = sorted(skills, key=lambda item: _relevance_score(f"{item[0]} {item[1]}", terms, job_description), reverse=True)
-    if skills:
-        _section_heading(document, "Skills")
-        for index, (label, values) in enumerate(skills):
-            paragraph = document.add_paragraph()
-            _compact_paragraph(paragraph, line_spacing=0.86)
-            paragraph.paragraph_format.left_indent = Inches(0.18)
-            paragraph.paragraph_format.first_line_indent = Inches(-0.18) if index == 0 else Inches(0)
-            if index == 0:
-                _set_run_font(paragraph.add_run("• "))
-            _set_run_font(paragraph.add_run(f"{label}: "), bold=True)
-            _set_run_font(paragraph.add_run(values))
+    if not _render_draft_resume(document, draft_content):
+        summary = _draft_summary(draft_content)
+        if summary:
+            _section_heading(document, "Professional Summary")
+            summary_paragraph = document.add_paragraph()
+            _compact_paragraph(summary_paragraph, after=1, line_spacing=0.9)
+            _set_run_font(summary_paragraph.add_run(summary), size=BODY_SIZE)
 
-    _section_heading(document, "Experience")
-    records = _source_experience(source_text) or _profile_experience(profile, draft_content)
-    for record in records:
-        _add_role(document, record, terms, job_description)
+        skills = _source_skills(source_text, profile)
+        skills = sorted(skills, key=lambda item: _relevance_score(f"{item[0]} {item[1]}", terms, job_description), reverse=True)
+        if skills:
+            _section_heading(document, "Skills")
+            for index, (label, values) in enumerate(skills):
+                paragraph = document.add_paragraph()
+                _compact_paragraph(paragraph, line_spacing=0.86)
+                paragraph.paragraph_format.left_indent = Inches(0.18)
+                paragraph.paragraph_format.first_line_indent = Inches(-0.18) if index == 0 else Inches(0)
+                if index == 0:
+                    _set_run_font(paragraph.add_run("• "))
+                _set_run_font(paragraph.add_run(f"{label}: "), bold=True)
+                _set_run_font(paragraph.add_run(values))
 
-    projects = _source_projects(source_text)
-    if projects:
-        _section_heading(document, "Projects")
-        for name_value, description in projects:
-            _add_project(document, name_value, description)
+        _section_heading(document, "Experience")
+        records = _source_experience(source_text) or _profile_experience(profile, draft_content)
+        for record in records:
+            _add_role(document, record, terms, job_description)
 
-    education = _source_education(source_text, profile)
-    if education:
-        _section_heading(document, "Education")
-        for record in education:
-            _add_education(document, record)
+        projects = _source_projects(source_text)
+        if projects:
+            _section_heading(document, "Projects")
+            for name_value, description in projects:
+                _add_project(document, name_value, description)
+
+        education = _source_education(source_text, profile)
+        if education:
+            _section_heading(document, "Education")
+            for record in education:
+                _add_education(document, record)
+
+    output = io.BytesIO()
+    document.save(output)
+    return output.getvalue()
+
+
+def build_cover_letter_docx(profile: dict[str, Any], job: Any, content: str) -> bytes:
+    """Render a reviewable one-page cover-letter draft with saved contact details."""
+    document = Document()
+    section = document.sections[0]
+    section.page_width = Inches(8.5)
+    section.page_height = Inches(11)
+    section.top_margin = Inches(0.75)
+    section.bottom_margin = Inches(0.75)
+    section.left_margin = Inches(0.9)
+    section.right_margin = Inches(0.9)
+    normal = document.styles["Normal"]
+    normal.font.name = "Arial"
+    normal._element.rPr.rFonts.set(qn("w:eastAsia"), "Arial")
+    normal.font.size = Pt(10.5)
+    normal.font.color.rgb = RGBColor(0, 0, 0)
+    normal.paragraph_format.space_after = Pt(8)
+    normal.paragraph_format.line_spacing = 1.05
+
+    name = _text(profile.get("preferred_name")) or _text(profile.get("name")) or "Candidate"
+    contact = [
+        _text(profile.get("location")),
+        _text(profile.get("phone")),
+        _text(profile.get("email")),
+    ]
+    title = _text(getattr(job, "title", "Target role"))
+    company = _text(getattr(job, "company_name", ""))
+    document.core_properties.title = f"{title} Cover Letter"
+    document.core_properties.subject = f"Cover letter draft for {title} at {company}".strip()
+
+    heading = document.add_paragraph()
+    _set_run_font(heading.add_run(name), size=15, bold=True)
+    _compact_paragraph(heading, after=2, line_spacing=1.0)
+    contact_line = " | ".join(value for value in contact if value)
+    if contact_line:
+        paragraph = document.add_paragraph()
+        _set_run_font(paragraph.add_run(contact_line), size=9.5)
+        _compact_paragraph(paragraph, after=18, line_spacing=1.0)
+    role_line = document.add_paragraph()
+    _set_run_font(role_line.add_run(f"Re: {title} — {company}".rstrip(" —")), size=10.5, bold=True)
+    _compact_paragraph(role_line, after=14, line_spacing=1.0)
+
+    cleaned = re.sub(r"^\s*(?:#+\s*)?(?:cover letter(?: draft)?|application letter)\s*\n+", "", _text(content), flags=re.I)
+    cleaned = re.sub(r"\n\s*\n\s*Review the claims.*$", "", cleaned, flags=re.I | re.S).strip()
+    for block in re.split(r"\n\s*\n", cleaned):
+        value = " ".join(line.strip() for line in block.splitlines() if line.strip())
+        if not value:
+            continue
+        paragraph = document.add_paragraph()
+        _set_run_font(paragraph.add_run(value), size=10.5)
+        _compact_paragraph(paragraph, after=9, line_spacing=1.05)
 
     output = io.BytesIO()
     document.save(output)

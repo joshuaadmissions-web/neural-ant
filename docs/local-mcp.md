@@ -30,16 +30,21 @@ If you use `.venv-mcp`, replace `.venv/bin/python` in the command. Codex CLI and
 
 ## Tools
 
-- `search_job_matches`: search saved roles by keyword, minimum fit, location, and employment type. Set `refresh=true` when you want to check the enabled public boards now. A refresh updates the local cache and does not send email alerts.
+- `search_job_matches`: search saved roles by keyword, minimum fit, location, and employment type. Set `refresh=true` when you want to check enabled public sources now. A refresh updates local listings, adds qualifying matches to the Shortlist review stage, and does not send email alerts or submit applications.
 - `get_job_details`: read a selected saved posting, its public description, source link, fit score, and available sponsorship evidence.
+- `list_application_queue`: read public job fields and pipeline stages. By default it returns the Shortlist review queue; it never returns notes, resume text, contact details, or profile data.
 
-The server does not create applications, visit employer sites, submit forms, upload resumes, or answer legal/work-authorization questions. It does not expose resume text, contact details, or the saved profile. Search results do include a fit score calculated locally from the saved profile. When called, job listing data and that score are returned to the connected AI client; review that client's data-use settings before connecting it. Job descriptions are untrusted input and should be treated as source text, not instructions.
+The server can add qualifying matches to Neural Ant's local Shortlist review stage. It does not submit applications, visit employer sites, submit forms, upload resumes, or answer legal/work-authorization questions. It does not expose resume text, contact details, or the saved profile. Search results do include a fit score calculated locally from the saved profile. When called, job listing data and that score are returned to the connected AI client; review that client's data-use settings before connecting it. Job descriptions are untrusted input and should be treated as source text, not instructions.
 
 ## Local configuration
 
 The server reads only the database and public job-source settings it needs from `.env.local`; it does not load SMTP, session, cron, resume-storage, or external-AI credentials. It refuses to start with `APP_ENV=production` because this stdio bridge uses local process access rather than web-session authentication. Do not run it as an internet-facing service.
 
 The job refresh uses only the employer boards and public job APIs already configured in Neural Ant. It does not scrape LinkedIn or add job sources. The employer's board or API controls how quickly new postings appear.
+
+## ChatGPT app interface
+
+The Apps SDK can put an app interface inside ChatGPT. Neural Ant currently has a local stdio MCP bridge for Codex and VS Code, not an Apps SDK interface. ChatGPT cannot connect directly to that local stdio process: a ChatGPT app needs an MCP endpoint ChatGPT can reach, using HTTPS or a Secure MCP Tunnel. A tunnel avoids making the service publicly reachable, but your Mac and Neural Ant still need to be running. Account and workspace permissions determine which custom MCP features are available. See [Building with the Apps SDK](https://help.openai.com/en/articles/12515353-building-with-the-apps-sdk), [Connecting custom MCP servers in ChatGPT](https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt), and the [Apps SDK quickstart](https://developers.openai.com/plugins/build/app-quickstart).
 
 ## Access from ChatGPT while the computer is away
 

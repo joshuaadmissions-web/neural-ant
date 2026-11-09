@@ -1,13 +1,16 @@
 # Job-source API coverage
 
-Neural Ant now supports six source types:
+Neural Ant supports six configured source types plus a broad live index search:
 
 - Greenhouse, Lever, and Ashby employer boards.
 - SmartRecruiters public employer postings.
 - Adzuna search API.
 - USAJOBS search API.
+- Freehire's public tech-job index, searched directly from **Agent search** with target titles, country, work mode, posting age, and result count.
 
-These sources are configured individually because there is no single lawful public API that returns every job from LinkedIn, Indeed, Glassdoor, and all ATS products. The app does not create accounts, scrape authenticated pages, bypass CAPTCHAs, or reverse-engineer private endpoints.
+The broad index uses Freehire's public `/api/v1/agent/jobs/search` endpoint and does not require credentials. It sends only the role query and filters; the saved resume, profile, and work-authorization details are not included. Posting text is matched locally, including sponsorship and C2C wording. C2C is a separate contract signal and does not establish H-1B sponsorship. Verify sponsorship with the employer before applying. `FREEHIRE_API_URL` can point to a compatible self-hosted service.
+
+The other sources are configured individually because there is no single lawful public API that returns every job from LinkedIn, Indeed, Glassdoor, and all ATS products. The app does not create accounts, scrape authenticated pages, bypass CAPTCHAs, or reverse-engineer private endpoints.
 
 ## Configure in the local app
 

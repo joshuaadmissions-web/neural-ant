@@ -26,6 +26,41 @@
     ].filter(Boolean).join(' '));
   }
 
+  function plainQuestion(element) {
+    const labels = [...(element.labels || [])].map(label => label.innerText || label.textContent || '').filter(Boolean);
+    const group = element.closest('fieldset,[role="group"]');
+    return String(labels[0] || element.getAttribute('aria-label') || element.getAttribute('placeholder')
+      || group?.querySelector('legend,[role="heading"]')?.innerText || element.name || 'Required answer')
+      .replace(/\s+/g, ' ').trim().slice(0, 220);
+  }
+
+  function collectRequiredQuestions(controls) {
+    const questions = [];
+    const seen = new Set();
+    for (const element of controls) {
+      if (!element.required && element.getAttribute('aria-required') !== 'true') continue;
+      const type = String(element.type || '').toLowerCase();
+      if (['password', 'hidden', 'submit', 'button', 'reset'].includes(type)) continue;
+      if (type === 'radio' || type === 'checkbox') {
+        const related = controls.filter(item => item.type === type && item.name === element.name);
+        if (related.some(item => item.checked)) continue;
+        const groupKey = type === 'radio' && element.name ? `radio:${element.name}` : `checkbox:${element.name || plainQuestion(element)}`;
+        if (seen.has(groupKey)) continue;
+        seen.add(groupKey);
+      } else if (type === 'file') {
+        if (element.files?.length) continue;
+      } else if (element.matches('select')) {
+        const selected = element.selectedOptions?.[0];
+        if (element.value.trim() && !/^(select|choose)(\s|$)/i.test(selected?.textContent?.trim() || '')) continue;
+      } else if (String(element.value || '').trim()) {
+        continue;
+      }
+      const question = plainQuestion(element);
+      if (question && !questions.includes(question)) questions.push(question);
+    }
+    return questions.slice(0, 12);
+  }
+
   function nearbyQuestion(element) {
     const group = element.closest('fieldset,[role="group"]');
     if (group) return norm(group.innerText || group.textContent);
@@ -66,7 +101,7 @@
       header{display:flex;justify-content:space-between;align-items:center;font-weight:700;color:#19573c}small{display:block;color:#5d6d63;font-size:12px;margin:3px 0 10px}
       button{font:inherit;border:0;border-radius:8px;padding:8px 10px;cursor:pointer}button:disabled{opacity:.55;cursor:wait}#fill{background:#1d6b4d;color:#fff;font-weight:700}.secondary{background:#e9f2ec;color:#19573c;border:1px solid #d5e3d9}#close{background:transparent;color:#64736a;font-size:18px;padding:0 5px}
       .actions{display:grid;grid-template-columns:1fr 1fr;gap:7px}.actions #fill{grid-column:1 / -1}#status{font-size:12px;color:#48564d;margin-top:8px;white-space:normal}.summary{display:none;margin-top:10px;padding-top:9px;border-top:1px solid #e7eee9;font-size:12px;color:#34443a;max-height:145px;overflow:auto}.summary.visible{display:block}.summary h3{font-size:12px;margin:0 0 5px;color:#19573c}.summary ul{margin:4px 0 8px;padding-left:17px}.summary li{margin:2px 0}.summary .warning h3{color:#9b5b13}
-    </style><section role="status"><header><span>Neural Ant · Application detected</span><button id="close" aria-label="Dismiss">×</button></header><small>1) Fill safe empty fields  2) Review the checklist  3) Save and submit yourself.</small><div class="actions"><button id="fill">Fill application</button><button id="save" class="secondary">Save draft</button><button id="restore" class="secondary">Restore draft</button></div><div id="status"></div><div id="summary" class="summary" aria-live="polite"></div></section>`;
+    </style><section role="status"><header><span>Neural Ant · Application detected</span><button id="close" aria-label="Dismiss">×</button></header><small>Fill supported fields, answer any highlighted questions here, then review and submit yourself.</small><div class="actions"><button id="fill">Fill application</button><button id="save" class="secondary">Save draft</button><button id="restore" class="secondary">Restore draft</button></div><div id="status"></div><div id="summary" class="summary" aria-live="polite"></div></section>`;
     document.documentElement.appendChild(host);
     banner = { host, shadow };
     shadow.querySelector('#close').addEventListener('click', () => { dismissed = true; host.remove(); banner = undefined; });
@@ -98,7 +133,8 @@
         ? `Filled ${result.filled.length} field(s): ${result.filled.join(', ')}.`
         : 'No recognized empty fields found. Check My profile and the form labels.';
       const remaining = result.skipped.length ? ` Still for you: ${result.skipped.join('; ')}.` : '';
-      const finalMessage = `${message}${remaining} Nothing was submitted.`;
+      const questionNotice = result.needsUser.length ? ` ${result.needsUser.length} required answer(s) need your attention in the employer form.` : '';
+      const finalMessage = `${message}${remaining}${questionNotice} Nothing was submitted.`;
       if (statusNode) statusNode.textContent = finalMessage;
       chrome.runtime.sendMessage({ type: 'NEURAL_ANT_FILL_RESULT', result: finalMessage });
     } catch (error) {
@@ -113,6 +149,27 @@
     if (!summary) return;
     summary.replaceChildren();
     summary.classList.add('visible');
+    if (result.needsUser.length) {
+      summary.setAttribute('role', 'alert');
+      const action = document.createElement('div');
+      action.className = 'warning';
+      const title = document.createElement('h3');
+      title.textContent = 'Your answer is needed on this page';
+      action.appendChild(title);
+      const note = document.createElement('p');
+      note.textContent = 'Complete these required questions directly in the employer form. Neural Ant does not store or submit your answers.';
+      action.appendChild(note);
+      const list = document.createElement('ul');
+      for (const question of result.needsUser) {
+        const row = document.createElement('li');
+        row.textContent = question;
+        list.appendChild(row);
+      }
+      action.appendChild(list);
+      summary.appendChild(action);
+    } else {
+      summary.removeAttribute('role');
+    }
     const completed = document.createElement('div');
     const completedTitle = document.createElement('h3');
     completedTitle.textContent = `Prepared ${result.filled.length} field(s)`;
@@ -234,9 +291,10 @@
 
     const years = Number(profile.years_experience);
     const matchesYears = text => {
-      const range = text.match(/(\d+(?:\.\d+)?)\s*(?:to|-|–|—)\s*(\d+(?:\.\d+)?)/);
+      const raw = String(text || '').toLowerCase();
+      const range = raw.match(/(\d+(?:\.\d+)?)\s*(?:to|[-–—]|\s)\s*(\d+(?:\.\d+)?)/);
       if (range) return years >= Number(range[1]) && years <= Number(range[2]);
-      const plus = text.match(/(\d+(?:\.\d+)?)\s*(?:\+|or more|and up)/);
+      const plus = raw.match(/(\d+(?:\.\d+)?)\s*(?:\+|or more|and up)/);
       return !!plus && years >= Number(plus[1]);
     };
     if (Number.isFinite(years) && years > 0) {
@@ -290,7 +348,7 @@
     if (controls.some(element => /currently work for curai|employee refer|how did you hear/.test(nearbyQuestion(element)))) skipped.push('employer-specific questions');
     if (controls.some(element => /gender|race|veteran/.test(nearbyQuestion(element)))) skipped.push('optional demographic questions');
     if (controls.some(element => element.matches('input[type="file"]'))) skipped.push('resume file (attach it yourself)');
-    return { filled, skipped: [...new Set(skipped)] };
+    return { filled, skipped: [...new Set(skipped)], needsUser: collectRequiredQuestions(controls) };
   }
 
   function findApplicationLinks() {
