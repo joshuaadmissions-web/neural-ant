@@ -8,7 +8,7 @@ This note records the product and research review used for the evidence-first ma
 - [Huntr's Chrome extension](https://help.huntr.co/en/articles/9859408-the-huntr-chrome-extension) uses a saved profile to populate editable application fields and keeps the job in an application board.
 - [Simplify](https://simplify.jobs/) describes a single profile, job matching, browser autofill, role-specific resume tailoring, and application tracking as one workflow.
 
-Neural Ant already has the tracker, local resume drafts, a reusable profile, and a supervised extension. The missing product layer was an explanation of why a role received its score and which signals are still unknown.
+Neural Ant has the tracker, local resume drafts, and a reusable profile. The product keeps an inspectable fit breakdown and separates hard eligibility gates from ranking signals; employer form completion stays with the user.
 
 ## Research conclusions
 

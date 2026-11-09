@@ -1,27 +1,27 @@
 const stages = {
-  discover: {
-    kicker: "STAGE 01 / DISCOVER",
-    title: "Start with roles<br>from your sources.",
-    copy: "Connect public Greenhouse, Lever, and Ashby career boards. Neural Ant searches those configured sources and puts matching roles in your workspace.",
-    detail: "Sources: boards you select"
+  setup: {
+    kicker: "STAGE 01 / SETUP",
+    title: "Start with your<br>verified profile.",
+    copy: "Upload a resume once. Neural Ant extracts the facts it can read and keeps your search preferences in your private workspace.",
+    detail: "You correct missing or uncertain profile details"
   },
-  review: {
-    kicker: "STAGE 02 / REVIEW",
-    title: "See the evidence<br>behind each match.",
-    copy: "Review fit, location, compensation, and any available sponsorship evidence. Employer filing history is shown as history, never as a promise for a specific role.",
-    detail: "You decide which roles are worth pursuing"
+  scrape: {
+    kicker: "STAGE 02 / SCRAPE",
+    title: "Search public<br>job sources.",
+    copy: "Search configured employer boards and public job indexes in parallel. New results are deduplicated and linked to their source postings.",
+    detail: "Public sources only · posting dates are checked"
   },
-  prepare: {
-    kicker: "STAGE 03 / PREPARE",
-    title: "Shape a draft<br>from your real experience.",
-    copy: "Create a resume draft for a role and verify every change. Local drafting is available; sending profile and job text to an external AI provider requires confirmation.",
-    detail: "Draft only · verify every claim"
+  rank: {
+    kicker: "STAGE 03 / RANK",
+    title: "See why a role<br>fits your profile.",
+    copy: "Compare technical skills, experience, work style, and career direction. Separate language, eligibility, and location gates make uncertainty visible.",
+    detail: "Scores are triage aids, not hiring predictions"
   },
-  assist: {
-    kicker: "STAGE 04 / ASSIST",
-    title: "Move through the form<br>with a human checkpoint.",
-    copy: "Choose an application link in the Chrome extension, open it, and fill supported empty fields from your saved profile. Review the answers, attach your file, complete attestations, and submit yourself.",
-    detail: "The extension stops before submission"
+  apply: {
+    kicker: "STAGE 04 / APPLY",
+    title: "Prepare drafts<br>grounded in your resume.",
+    copy: "Create a role-specific resume and cover letter, then review each claim. Open the official posting, complete its form, and submit it yourself.",
+    detail: "Drafts only · no form automation or submission"
   }
 };
 
@@ -61,4 +61,4 @@ tabs.forEach((tab, index) => {
     activateStage(tabs[next].dataset.stage, true);
   });
 });
-activateStage("discover");
+activateStage("setup");

@@ -13,13 +13,7 @@ Official portal documentation shows the recurring profile categories:
 - SAP SuccessFactors: candidate-profile background elements support multiple work, education, and language entries, while application forms add job- and region-specific fields.
 - SmartRecruiters, Taleo, and Jobvite similarly support attachments, custom screening questions, consent/privacy choices, and job-specific application flows.
 
-The implementation consequently has three layers:
-
-1. Reusable fields that the user edits once in Neural Ant.
-2. Label-matched, empty-field autofill for common non-sensitive fields in the local Chrome extension.
-3. A review stop for credentials, privacy consent, work authorization, sponsorship, demographic/EEO, background, signature, and job-specific questions.
-
-No employer account passwords or credentials are stored in Neural Ant.
+Neural Ant keeps these fields in a reusable local profile for setup, job ranking, and document drafting. Employer application forms remain outside the app: the user reviews the official posting, uploads the prepared documents, answers job-specific questions, and submits on the employer site. Neural Ant does not store employer passwords or credentials.
 
 ## Reusable profile schema
 
@@ -48,9 +42,7 @@ Dates, employers, titles, skills, and achievements must come from the user's ver
 
 ## Portal coverage strategy
 
-Neural Ant currently discovers public jobs from Greenhouse, Lever, and Ashby. The extension is deliberately portal-agnostic: it inspects visible HTTPS pages and labels rather than attempting to log in to dozens of vendor-specific accounts. This covers the shared field vocabulary across major ATS families while avoiding brittle selectors and unsupported account automation.
-
-Future portal validation should be a test matrix, not a promise that every employer portal has identical behavior. Each portal family needs a controlled fixture and a manual check for account creation, resume parsing, repeated profile fields, custom questions, file uploads, privacy consent, and “save for later” behavior before any new field is enabled.
+Neural Ant reads public job listings from its configured supported sources. It does not automate employer portals or promise that application questions are interchangeable across ATS products. Candidates complete account creation, screening questions, uploads, consent, and final submission directly with the employer.
 
 ## Sources
 

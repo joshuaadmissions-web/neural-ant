@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#101912">
-  <meta name="description" content="Neural Ant is a private job-search workspace for finding, reviewing, and preparing applications with a supervised browser assistant.">
+  <meta name="description" content="Neural Ant is a private job-search workspace for finding, ranking, and preparing reviewable applications from your resume.">
   <title>Neural Ant — A clearer path from search to application</title>
   <link rel="stylesheet" href="./styles.css">
   <script src="./app.js" defer></script>
@@ -26,7 +26,7 @@
       <div class="hero-copy">
         <p class="eyebrow"><span class="pulse"></span> YOUR PERSONAL JOB-SEARCH STUDIO</p>
         <h1>Make the search<br>feel <em>less like work.</em></h1>
-        <p class="lead">Neural Ant brings role discovery, fit review, resume preparation, and browser assistance into one thoughtful workflow.</p>
+        <p class="lead">Neural Ant brings resume setup, public job search, fit ranking, and application drafts into one clear workflow.</p>
         <div class="hero-actions">
           <a class="button primary" href="#workflow">See how it works <span>↓</span></a>
           <a class="quiet-link" href="#setup">Run Neural Ant locally <span>↗</span></a>
@@ -38,13 +38,13 @@
         <div class="orbit orbit-a"></div><div class="orbit orbit-b"></div>
         <div class="visual-tag"><span class="status-dot"></span> WORKFLOW / 04 STAGES</div>
         <div class="flow-stack">
-          <div class="flow-node node-one"><span class="node-icon">⌕</span><div><small>01 / DISCOVER</small><strong>Configured career boards</strong></div><b class="node-check">✓</b></div>
+          <div class="flow-node node-one"><span class="node-icon">⌕</span><div><small>01 / SETUP</small><strong>Resume and search profile</strong></div><b class="node-check">✓</b></div>
           <div class="flow-connector"><i></i></div>
-          <div class="flow-node node-two"><span class="node-icon">◈</span><div><small>02 / REVIEW</small><strong>Fit, salary, location</strong></div><b class="node-check">✓</b></div>
+          <div class="flow-node node-two"><span class="node-icon">◈</span><div><small>02 / SCRAPE</small><strong>Configured job sources</strong></div><b class="node-check">✓</b></div>
           <div class="flow-connector"><i></i></div>
-          <div class="flow-node node-three"><span class="node-icon">✎</span><div><small>03 / PREPARE</small><strong>Resume draft for review</strong></div><b class="node-check">✓</b></div>
+          <div class="flow-node node-three"><span class="node-icon">✎</span><div><small>03 / RANK</small><strong>Fit and eligibility gates</strong></div><b class="node-check">✓</b></div>
           <div class="flow-connector"><i></i></div>
-          <div class="flow-node node-four"><span class="node-icon">↗</span><div><small>04 / ASSIST</small><strong>Fill, review, submit yourself</strong></div><span class="live-pill">YOU IN CONTROL</span></div>
+          <div class="flow-node node-four"><span class="node-icon">↗</span><div><small>04 / APPLY</small><strong>Tailored documents to review</strong></div><span class="live-pill">YOU IN CONTROL</span></div>
         </div>
         <div class="visual-caption"><span>NO AUTO-SUBMISSIONS</span><span>LOCAL-FIRST PROFILE</span></div>
       </div>
@@ -59,14 +59,14 @@
         </div>
         <div class="workflow-grid">
           <div class="stage-list" role="tablist" aria-label="Neural Ant workflow stages">
-            <button class="stage-tab active" id="tab-discover" role="tab" aria-selected="true" aria-controls="stage-panel" data-stage="discover"><span>01</span><b>Discover</b><small>Search configured boards</small><i>↗</i></button>
-            <button class="stage-tab" id="tab-review" role="tab" aria-selected="false" aria-controls="stage-panel" data-stage="review"><span>02</span><b>Review fit</b><small>Inspect evidence and match</small><i>↗</i></button>
-            <button class="stage-tab" id="tab-prepare" role="tab" aria-selected="false" aria-controls="stage-panel" data-stage="prepare"><span>03</span><b>Prepare</b><small>Create a reviewable draft</small><i>↗</i></button>
-            <button class="stage-tab" id="tab-assist" role="tab" aria-selected="false" aria-controls="stage-panel" data-stage="assist"><span>04</span><b>Assist</b><small>Navigate and fill with Chrome</small><i>↗</i></button>
+            <button class="stage-tab active" id="tab-setup" role="tab" aria-selected="true" aria-controls="stage-panel" data-stage="setup"><span>01</span><b>Setup</b><small>Upload resume and verify profile</small><i>↗</i></button>
+            <button class="stage-tab" id="tab-scrape" role="tab" aria-selected="false" aria-controls="stage-panel" data-stage="scrape"><span>02</span><b>Scrape</b><small>Search supported public sources</small><i>↗</i></button>
+            <button class="stage-tab" id="tab-rank" role="tab" aria-selected="false" aria-controls="stage-panel" data-stage="rank"><span>03</span><b>Rank</b><small>Score fit and review gates</small><i>↗</i></button>
+            <button class="stage-tab" id="tab-apply" role="tab" aria-selected="false" aria-controls="stage-panel" data-stage="apply"><span>04</span><b>Apply</b><small>Prepare role-specific documents</small><i>↗</i></button>
           </div>
-          <article class="stage-panel" id="stage-panel" role="tabpanel" aria-labelledby="tab-discover" tabindex="0">
-            <div class="panel-top"><span class="panel-kicker" id="stage-kicker">STAGE 01 / DISCOVER</span><span class="panel-mark">NA<span>•</span></span></div>
-            <h3 id="stage-title">Start with roles<br>from your sources.</h3>
+          <article class="stage-panel" id="stage-panel" role="tabpanel" aria-labelledby="tab-setup" tabindex="0">
+            <div class="panel-top"><span class="panel-kicker" id="stage-kicker">STAGE 01 / SETUP</span><span class="panel-mark">NA<span>•</span></span></div>
+            <h3 id="stage-title">Start with your<br>verified profile.</h3>
             <p id="stage-copy">Connect public Greenhouse, Lever, and Ashby career boards. Neural Ant searches those configured sources and puts matching roles in your workspace.</p>
             <div class="panel-divider"></div>
             <div class="panel-foot"><span id="stage-detail">Sources: boards you select</span><span class="mini-arrow">↗</span></div>
@@ -85,7 +85,7 @@
         <div class="principle-grid">
           <article class="principle-card"><span class="principle-number">A / 01</span><div class="principle-icon">⌁</div><h3>Evidence before claims</h3><p>Job status, pay, experience, and sponsorship are presented with sources and uncertainty called out.</p></article>
           <article class="principle-card"><span class="principle-number">A / 02</span><div class="principle-icon">▤</div><h3>Drafts stay reviewable</h3><p>Resume edits are drafts. Check every achievement and detail against your real experience.</p></article>
-          <article class="principle-card"><span class="principle-number">A / 03</span><div class="principle-icon">◉</div><h3>You make the final call</h3><p>The browser helper fills supported empty fields. You handle attestations, attach the file, and submit.</p></article>
+          <article class="principle-card"><span class="principle-number">A / 03</span><div class="principle-icon">◉</div><h3>You make the final call</h3><p>Review each tailored document, then complete the employer form and submit it yourself.</p></article>
         </div>
       </div>
     </section>
@@ -97,7 +97,7 @@
           <div><span>01</span><p>Clone or download the repository</p><b>→</b></div>
           <div><span>02</span><p>Run <code>bash run-local.sh</code></p><b>→</b></div>
           <div><span>03</span><p>Open <code>127.0.0.1:8080</code> and upload your resume privately</p><b>✓</b></div>
-          <small>Keep the local server running while you use Neural Ant’s Chrome extension.</small>
+          <small>Use the local app to review drafts, then finish applications on the employer site.</small>
         </div>
       </div>
     </section>

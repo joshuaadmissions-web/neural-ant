@@ -148,3 +148,7 @@ body{background:var(--canvas);color:var(--ink)}
 .profile .avatar{background:#14213D;color:#FF6B5B}
 @media(max-width:950px){.app{grid-template-columns:205px minmax(0,1fr)}.content{padding:20px 16px 35px}.chat-intro{padding-top:27px}}
 @media(max-width:650px){.sidebar{background:#F4EDE0}.chat-home{min-height:calc(100vh - 79px);gap:13px}.chat-intro{padding:15px 3px 2px}.chat-intro h1{font-size:28px}.chat-workflow{padding:14px}.resume-drop{padding:11px;gap:9px}.resume-upload-copy small{font-size:10px}.choose-file{padding:6px 8px}.home-resume-status{font-size:10px}.one-click-button{min-height:46px}}
+
+.ai-opt-in{display:flex;align-items:flex-start;gap:8px;font-size:12px;color:#14213D;margin-top:10px}.ai-opt-in input{margin:2px 0 0;accent-color:#FF6B5B}.gate-pass strong{color:#24724a}.gate-flag strong{color:#9a6200}.gate-fail strong{color:#b42318}
+
+.job-blocked{border-color:#e8c8c3;background:#fffaf9}.gate-blocked-label{display:inline-block;margin:6px 0;padding:7px 10px;border-radius:8px;background:#fae9e7;color:#8e2b23;font-size:12px;font-weight:700}

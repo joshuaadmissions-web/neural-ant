@@ -6,7 +6,7 @@ Neural Ant is a single-user job-search application. It stores a resume and searc
 
 ## Run the job search
 
-The compact Chat page has one **Find & prepare jobs** button for the common path. Upload your resume once; Neural Ant extracts and saves supported profile fields. Review them if needed, then click the button. It searches configured public boards and the remote index in parallel, ranks roles, then prepares local resume and cover-letter drafts for up to five top-fit remote roles whose postings explicitly mention visa/H-1B sponsorship. C2C is tracked separately and does not prove sponsorship. Review the official posting and generated files yourself; sponsorship wording does not guarantee a new H-1B petition. Applications are never submitted by Neural Ant.
+The compact Chat page follows the reference repo sequence with one button: `/setup → /scrape → /rank → /apply`. Upload the resume, check any profile gaps once, then click **Find & prepare jobs**. Neural Ant searches configured public boards and the remote index in parallel, ranks results with the repo’s 30/25/15/30 scoring dimensions and separate eligibility, language, and location gates, then prepares review packs for up to five top-fit remote roles whose postings explicitly mention sponsorship. Contract and C2C remain distinct employment signals; C2C alone does not establish visa sponsorship. Review the posting and generated documents, then complete the employer portal yourself. Neural Ant does not fill application forms or submit applications.
 
 The user-designated workflow reference is [ai-job-search](https://github.com/ai-job-search-dev/ai-job-search). Neural Ant keeps the source repo's setup, scrape, rank, and apply sequence as its default workflow map; see the [parity note](docs/ai-job-search-workflow-parity.md) for steps Neural Ant implements differently or does not yet support.
 
@@ -19,22 +19,6 @@ You can still use slash commands for individual steps:
 
 `/scrape` and `/rank` remain available when you want to rerun or inspect those steps separately. `/help` opens the full command list. Commands route into Neural Ant’s existing feature screens; the command box is not a general-purpose AI chatbot.
 
-## Supervised prototype — local testing
-
-The delivered, controlled-form-tested prototype is in [supervised-prototype/](supervised-prototype/README.md), including its Chrome extension, tests, and evidence. It is a separate local Node app with its own application drafts. Its extension can sync only allowlisted contact fields from the Python app's local profile at `127.0.0.1:8080`; it does not copy the resume file or sensitive answers.
-
-Requires **Node.js 22.13+**. From the repository root:
-
-```sh
-cd supervised-prototype
-npm ci
-npm start
-```
-
-Open **http://127.0.0.1:4317**. Load **supervised-prototype/extension/** in Chrome's `chrome://extensions` → Developer mode → Load unpacked. Use this extension for the prototype and disable the other Neural Ant extension during testing.
-
-See the [setup and supported-fields guide](supervised-prototype/README.md) and [delivery/test report](supervised-prototype/delivery/report.md). The recorded validation passed 8 unit tests and 10 controlled-browser acceptance groups; live employer forms and the production toolbar permission gesture still require manual verification. Applications remain under your manual review and submission.
-
 ## Current capabilities
 
 - Local single-user workspace opens directly without a sign-in screen; production mode retains password protection.
@@ -42,13 +26,13 @@ See the [setup and supported-fields guide](supervised-prototype/README.md) and [
 - Persistent PostgreSQL storage (SQLite for local development); resume files use a private volume or optional private Google Cloud Storage bucket.
 - Public job-source adapters for Greenhouse, Lever, Ashby, SmartRecruiters, Adzuna, and USAJOBS. You add employer board identifiers or API query sources; this is not an all-platform aggregator.
 - A live Freehire tech-job index search from **Agent search**. It defaults to target roles in your profile and supports country, work mode, posting age, and result-count filters. Only the role query and filters go to Freehire; résumé text and work-authorization details stay local. Results enter the same local scoring, sponsorship review, shortlist, and tracker flow.
-- Explainable match ranking by target titles, skill overlap, salary, work mode, location, employment type, and sponsorship signal. Pasted postings use the same profile-aware rubric and show category evidence, skills mentioned or not found, and unresolved sponsorship information. Add the official HTTPS link and save a reviewed posting directly to the application tracker; the fit check includes full-time, contract, contract-to-hire, C2C, W-2, and 1099 signals. Scores are ranking aids, not ATS scores or hiring predictions. Each saved listing exposes matched evidence and unknowns. Listings also show verified employment-type signals such as Full-time, Contract, Contract-to-hire, C2C, W-2, and 1099; if the posting does not state one, the app shows `Not stated`. See the [matching research note](docs/matching-research.md).
+- Explainable triage ranking using technical skills (30%), experience (25%), work-style fit (15%), and career alignment (30%), with separate eligibility, language, and location gates. Hard mismatches receive a zero score and block draft preparation; flags stay visible for your review. Salary, work mode, contract type, and sponsorship remain separate evidence signals. Pasted postings use the same profile-aware rubric and show category evidence, skills mentioned or not found, and unresolved sponsorship information. Add the official HTTPS link and save a reviewed posting directly to the application tracker; the fit check includes full-time, contract, contract-to-hire, C2C, W-2, and 1099 signals. Scores are ranking aids, not ATS scores or hiring predictions. Each saved listing exposes matched evidence and unknowns. Listings also show verified employment-type signals such as Full-time, Contract, Contract-to-hire, C2C, W-2, and 1099; if the posting does not state one, the app shows `Not stated`. See the [matching research note](docs/matching-research.md).
 - The Agent search dashboard filters to the saved profile threshold (50% minimum in the portal by default) and rescoring runs when the profile or resume changes. Direct HTTPS role links can also be imported for review.
 - LinkedIn is not scraped or reverse-engineered. Its job APIs require approved partner access; see the [job-source API notes](docs/job-source-apis.md).
 - Scheduled searches are intended to run daily or on another rate-limit-safe cadence through the authenticated scheduler endpoint; the app does not poll job boards every second.
 - Local development automatically checks configured boards every 60 seconds and refreshes the open Agent search page every 60 seconds. A board API may publish a role later than the employer's page, so this is frequent polling—not a guarantee of instant discovery.
 - Optional CSV import of employer-level H-1B/LCA historical evidence. Historical filings do not establish that a company will sponsor a specific role.
-- Reviewable resume drafts; optional external AI use requires a per-draft confirmation. The provider receives resume/profile/job text only after that confirmation.
+- Reviewable resume drafts. External AI is optional: one-click preparation requires checking its explicit opt-in box; individual application packs ask for confirmation. The provider receives redacted resume/profile/job text only after that choice.
 - Each prepared application now saves a resume and cover-letter draft for that job. The review-first pack can use local, source-grounded drafting, or—after per-pack confirmation—a configured external provider for drafting, a separate critique pass, and revision. External processing sends the resume, posting, and selected skills/experience/education fields. Before sending, Neural Ant removes common phone, email, URL, street-address, and work-authorization details; this is best-effort redaction and may miss unusual formats. A local check flags some unsupported numbers and common technology names, but cannot verify meaning. Downloaded DOCX files still need your visual review; Neural Ant does not claim a page-count or ATS pass.
 - The Applications tracker can build a saved, stage-specific interview pack from resume examples, role requirements, prior notes, and the latest prepared drafts. It includes STAR prompts and questions to ask. It does not fetch company research; review the employer's official site and role posting yourself. The copilot also prepares recruiter messages and skill-gap learning plans. These are drafts only and are not used during an interview.
 - Application tracking stores stages, notes, outcomes, follow-up dates, and up to two saved follow-up drafts per role. Mark submitted roles Done; completed roles and duplicate company/title listings are excluded from fresh search and one-click preparation. When you archive or record an outcome, Neural Ant freezes the posting and latest prepared-document snapshot; it labels the documents as drafts because it cannot know what you submitted. A 60-day stale-role review suggests possible resolutions but waits for your choice before archiving anything. Neural Ant never sends messages or submits applications.
@@ -58,15 +42,14 @@ See the [setup and supported-fields guide](supervised-prototype/README.md) and [
 - Gmail and Notion are not directly connected in this standalone app. Email status review accepts a message you choose to paste; Notion support is a one-way CSV export for manual import. Neither feature stores copied email bodies or exports resume/profile contact data.
 - Matching roles at or above the saved threshold are automatically added to Shortlist for review. The Chat page's one-click workflow can also prepare local resume and cover-letter drafts for up to five top-fit remote roles with explicit sponsorship wording. Re-running it keeps existing drafts unchanged. Applications are never submitted by Neural Ant. Optional email alerts notify you about new matches. The dashboard also keeps direct/chat-imported roles visible below the fit threshold so a role found during research is not silently hidden.
 - Authenticated scheduled-search endpoint so a hosted scheduler can run searches while your computer is off.
-- Chrome extension prototype that saves visible application answers locally and restores them into empty fields when you reopen the same application page. Passwords and resume uploads are excluded; see [local draft behavior](docs/local-application-drafts.md).
-- Reusable application-profile fields and the evidence-based [application profile and resume research](docs/application-profile-research.md). The extension still pauses for credentials, consent, legal/work-authorization, demographic, signature, and job-specific questions.
+- A reusable application profile, including professional languages and work-style preferences used by the rank gates. The app does not automate employer forms; review the posting, upload the tailored files, answer attestations, and submit on the employer site.
 - Optional local MCP bridge for Codex and VS Code clients to search saved job matches and inspect a posting. It does not expose resume text/contact details, submit applications, or open employer sites; see [local MCP setup](docs/local-mcp.md).
 - Product-growth direction is documented in the [Instagram scale scan](docs/instagram-scale-scan.md); it is a curated public-account study, not an exhaustive Instagram crawl.
 - Multilingual creator research and the implemented profile-readiness/freshness improvements are documented in the [multilingual creator scan](docs/multilingual-creator-scan.md).
 
 ## Product preview and free static hosting
 
-A static Neural Ant workflow preview is in [`site/`](site/). It shows the four stages—discover roles, review fit, prepare a resume draft, and use the supervised Chrome assistant. It is a demonstration page only; it does not connect to the app, search jobs, or collect a resume.
+A static Neural Ant workflow preview is in [`site/`](site/). It shows the four stages—set up a profile, scrape public job sources, rank fit, and prepare a role-specific application pack. It is a demonstration page only; it does not connect to the app, search jobs, or collect a resume.
 
 To publish this preview for free with Cloudflare Pages:
 
@@ -148,21 +131,6 @@ By default, Neural Ant creates a local draft that reorders existing resume lines
 ## Connect a local AI client through MCP
 
 The optional MCP bridge gives a local AI client two tools for searching saved job listings and reading a selected posting. It uses stdio and opens no network port. The tools can return job information and a fit score calculated from the saved profile; they never return resume text, contact details, or the saved profile. A requested refresh checks only configured public job sources and does not send email alerts. Read [local MCP setup and privacy notes](docs/local-mcp.md) before enabling the bridge.
-
-## Navigate and fill application forms with browser RPA
-
-The local Chrome extension provides a supervised browser workflow: from an employer job posting, it finds visible HTTPS links labeled for applying; you choose the correct link and open it in a new tab; on the application page, you click **Fill application**, review the field checklist, then use **Save draft locally** or **Restore saved draft**. It does not click page buttons automatically, overwrite populated fields, upload a resume, or submit the application.
-
-It checks visible field labels and current values locally to identify supported empty fields. It does not send form contents to Neural Ant or another service. It leaves work-authorization and sponsorship questions, unknown experience claims, referrals, legal attestations, demographic questions, and role-specific written answers for you. Attach the correct resume yourself and review the entire form before submitting.
-
-1. Start Neural Ant with `bash run-local.sh` and open `http://127.0.0.1:8080`.
-2. In **My profile**, upload your resume, verify the extracted profile, and save the details the extension may use.
-3. In Chrome, open `chrome://extensions`, enable **Developer mode**, select **Load unpacked**, and choose this repository's `extension` folder. After an update, reload the extension and refresh job pages already open.
-4. Open a job posting from Neural Ant or the employer's career site. Click the Neural Ant extension icon, choose **Find application links**, select the correct employer application link, and click **Open selected application**. Only visible HTTPS links are offered; the extension does not click page buttons.
-5. On the application page, click the inline **Fill application** button or open the extension and choose **Fill this application**. Review the on-page checklist, then use **Save draft locally** after reviewing the supported fields; use **Restore saved draft** when returning to the same application page.
-6. Review every answer, attach the tailored resume yourself, complete personal attestations yourself, and submit manually.
-
-The extension fetches saved form-profile fields from Neural Ant at `127.0.0.1:8080` only after you click a fill action. Keep Neural Ant running locally. Chrome grants its content script access to HTTPS pages to detect application forms and inspect apply links when requested. The extension files are in `extension/`.
 
 ## Search setup
 

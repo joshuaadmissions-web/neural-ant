@@ -210,6 +210,9 @@ DEFAULT_PROFILE: dict[str, Any] = {
     "relocation_preference": "",
     "travel_preference": "",
     "target_titles": [],
+    "career_goals": [],
+    "work_style_preferences": [],
+    "work_style_deal_breakers": [],
     "location_preferences": ["United States"],
     "work_modes": ["Remote", "Hybrid", "On-site"],
     "minimum_salary": None,
@@ -517,6 +520,16 @@ def extract_profile(text: str) -> dict[str, Any]:
     skills = [skill for skill in skill_catalog if re.search(rf"(?<![a-z0-9]){re.escape(skill.casefold())}(?![a-z0-9])", normalized_text)]
     experience = _parse_experience(_section(lines, "Experience", ("Projects", "Education", "Skills")))
     education_history = _parse_education(_section(lines, "Education", ("Skills", "Experience", "Projects")))
+    language_lines = _section(lines, "Languages", ("Certifications", "Awards", "Projects", "Experience", "Education", "Skills"))
+    languages: list[dict[str, str]] = []
+    for line in language_lines:
+        found = next((language for language in COMMON_LANGUAGES if re.search(rf"\b{re.escape(language)}\b", line, re.I)), None)
+        if not found:
+            continue
+        level = re.search(r"\b(native|bilingual|fluent|professional(?: working)?|working proficiency|intermediate|conversational|beginner|C[1-2]|B[1-2]|A[1-2])\b", line, re.I)
+        entry = {"language": found, "proficiency": level.group(0) if level else ""}
+        if entry not in languages:
+            languages.append(entry)
     location = f"{location_match.group('city')}, {location_match.group('state')}" if location_match else ""
     profile: dict[str, Any] = {
         "name": name,
@@ -532,6 +545,7 @@ def extract_profile(text: str) -> dict[str, Any]:
         "skills": skills,
         "employment_history": experience,
         "education_history": education_history,
+        "languages": languages,
     }
     if experience:
         profile["current_company"] = experience[0]["company"]
@@ -824,128 +838,205 @@ def sponsor_for(db: Session, company: str) -> SponsorRow | None:
     return db.scalar(select(SponsorRow).where(SponsorRow.company_key == key).order_by(SponsorRow.imported_at.desc()))
 
 
+TECH_SKILL_TERMS = (
+    "Python", "Java", "Go", "TypeScript", "JavaScript", "SQL", "AWS", "Azure", "GCP", "Terraform",
+    "Docker", "Kubernetes", "FastAPI", "Django", "Flask", "React", "PostgreSQL", "MongoDB", "Redis",
+    "Kafka", "Spark", "PyTorch", "TensorFlow", "scikit-learn", "Machine Learning", "MLOps", "LLM",
+    "RAG", "LangChain", "LangGraph", "OpenAI", "Bedrock", "SageMaker", "MCP", "A2A", "REST API",
+)
+COMMON_LANGUAGES = (
+    "English", "Spanish", "French", "German", "Mandarin", "Chinese", "Cantonese", "Hindi", "Telugu",
+    "Tamil", "Kannada", "Urdu", "Arabic", "Japanese", "Korean", "Portuguese", "Italian", "Dutch",
+    "Russian", "Polish", "Swedish", "Danish", "Norwegian", "Finnish", "Hebrew", "Bengali", "Punjabi",
+)
+
+
+def _as_profile_list(value: Any) -> list[str]:
+    if isinstance(value, str):
+        values = value.split(",")
+    elif isinstance(value, list):
+        values = [" ".join(str(part) for part in (item.get("language"), item.get("proficiency")) if part) if isinstance(item, dict) else item for item in value]
+    else:
+        values = []
+    return [str(item).strip() for item in values if str(item).strip()]
+
+
+def _language_gate(description: str, profile: dict[str, Any]) -> dict[str, str]:
+    required: list[tuple[str, str]] = []
+    for language in COMMON_LANGUAGES:
+        escaped = re.escape(language)
+        patterns = (
+            rf"\b(?:fluent|native|bilingual|proficient|business[- ]level|professional(?: working)? proficiency)\s+(?:in\s+)?{escaped}\b",
+            rf"\b{escaped}\s+(?:fluency|proficiency|skills?)\b",
+            rf"\b(?:fluency|proficiency|native speaker)\s+(?:in\s+|of\s+)?{escaped}\b",
+            rf"\b(?:must|need(?:s)?|require(?:s|d)?)\s+(?:to\s+)?(?:speak|write|communicate in)\s+{escaped}\b",
+            rf"\b(?:excellent|strong)\s+(?:written and verbal\s+)?{escaped}\s+(?:skills|communication)\b",
+        )
+        match = next((found for pattern in patterns if (found := re.search(pattern, description, re.I))), None)
+        if match:
+            required.append((language, match.group(0)))
+    if not required:
+        return {"status": "PASS", "detail": "No explicit role-language requirement was found."}
+
+    declared = _as_profile_list(profile.get("languages"))
+    if not declared:
+        details = "; ".join(f"{language}: posting says ‘{evidence}’" for language, evidence in required)
+        return {"status": "FLAG", "detail": details + "; no professional languages are saved in the profile."}
+
+    level_words = {"beginner": 1, "elementary": 1, "conversational": 2, "intermediate": 3, "working": 3, "professional": 4, "fluent": 4, "native": 5, "bilingual": 5, "c1": 4, "c2": 5, "b2": 3, "b1": 2, "a2": 2, "a1": 1}
+    missing: list[str] = []
+    flags: list[str] = []
+    for language, evidence in required:
+        entry = next((item for item in declared if re.search(rf"\b{re.escape(language)}\b", item, re.I)), None)
+        if not entry:
+            missing.append(f"{language}: posting says ‘{evidence}’")
+            continue
+        required_level = max((level for word, level in level_words.items() if re.search(rf"\b{re.escape(word)}\b", evidence, re.I)), default=0)
+        declared_level = max((level for word, level in level_words.items() if re.search(rf"\b{re.escape(word)}\b", entry, re.I)), default=0)
+        if required_level and (not declared_level or declared_level < required_level):
+            flags.append(f"{language}: posting says ‘{evidence}’; profile says ‘{entry}’")
+    if missing:
+        return {"status": "FAIL", "detail": "Required language is not listed: " + "; ".join(missing)}
+    if flags:
+        return {"status": "FLAG", "detail": "; ".join(flags)}
+    return {"status": "PASS", "detail": "Explicit language requirements match the saved profile."}
+
+
+def _eligibility_gate(description: str, profile: dict[str, Any], sponsor_status: str) -> dict[str, str]:
+    hard_restrictions = (
+        re.search(r"\b(?:u\.?s\.?|united states)\s+citizens?\s+only\b|\bonly\s+(?:u\.?s\.?\s+)?citizens?\b", description, re.I),
+        re.search(r"\b(?:must be|requires?|requirement:?)\s+(?:a\s+)?(?:u\.?s\.?\s+)?citizen\b", description, re.I),
+        re.search(r"\b(?:must be|requires?|requirement:?)\s+(?:a\s+)?permanent resident\b|\bgreen card holders? only\b", description, re.I),
+        re.search(r"\b(?:active|current|eligible for)\s+(?:u\.?s\.?\s+)?security clearance\b", description, re.I),
+    )
+    evidence = next((match.group(0) for match in hard_restrictions if match), "")
+    if evidence:
+        return {"status": "FAIL", "detail": f"Hard eligibility requirement found: ‘{evidence}’."}
+    if profile_requires_sponsorship(profile):
+        if sponsor_status in {"posting says no", "conflicting sponsorship wording"}:
+            return {"status": "FAIL", "detail": "The posting rules out sponsorship or contains conflicting terms. Verify the exact wording before proceeding."}
+        if sponsor_status == "explicit support; verify role details":
+            return {"status": "PASS", "detail": "The posting states sponsorship support. Confirm it covers this role and a new H‑1B petition."}
+        if sponsor_status == "transfer only; new sponsorship unclear":
+            return {"status": "FLAG", "detail": "The posting mentions an H‑1B transfer but does not confirm a new petition."}
+        if sponsor_status == "employer filing history only":
+            return {"status": "FLAG", "detail": "Only historical employer filing evidence is available; it is not role-specific sponsorship confirmation."}
+        return {"status": "FLAG", "detail": "The posting does not confirm new H‑1B sponsorship for this role."}
+    return {"status": "PASS", "detail": "No explicit citizenship, clearance, or sponsorship mismatch was found."}
+
+
+def _location_gate(job: dict[str, Any], profile: dict[str, Any], description: str) -> dict[str, str]:
+    location = str(job.get("location") or "").strip()
+    mode = str(job.get("work_mode") or "").casefold()
+    text = f"{location} {description[:2500]}".casefold()
+    remote = "remote" in mode or bool(re.search(r"\b(remote|work from anywhere|fully distributed)\b", text))
+    work_modes = [item.casefold() for item in _as_profile_list(profile.get("work_modes"))]
+    if remote and (not work_modes or any("remote" in item for item in work_modes)):
+        return {"status": "PASS", "detail": "Remote work fits the saved preference."}
+    if not location and mode in {"", "unspecified", "not stated"}:
+        return {"status": "FLAG", "detail": "The posting does not state enough location or work-mode detail."}
+    location_preferences = [item.casefold() for item in _as_profile_list(profile.get("location_preferences"))]
+    location_hit = next((item for item in location_preferences if item and (item in text or (item == "united states" and re.search(r"\b(?:u\.?s\.?|united states)\b", text)))), None)
+    if location_hit:
+        return {"status": "PASS", "detail": f"Posting location matches ‘{location_hit}’."}
+    relocation = str(profile.get("relocation_preference") or "").casefold()
+    onsite = bool(re.search(r"\bon[- ]site\b|\bin office\b", text))
+    mode_allowed = any(token in mode for item in work_modes for token in (item,)) if mode else False
+    if onsite and not mode_allowed and relocation in {"no", "not willing", "not open"}:
+        return {"status": "FAIL", "detail": f"On-site role at {location or 'an unstated location'} conflicts with the saved no-relocation preference."}
+    return {"status": "FLAG", "detail": f"Confirm whether {location or 'the stated work mode'} fits your location and travel preferences."}
+
+
 def score_job(job: dict[str, Any], profile: dict[str, Any], sponsor: SponsorRow | None) -> tuple[int, list[str], dict[str, Any], str, str, str]:
     title = str(job.get("title") or "")
     description = str(job.get("description") or "")
-    text = f"{title} {description}".lower()
-    title_text = title.lower()
-    reasons: list[str] = []
-    breakdown: dict[str, Any] = {}
-    score = 0
+    text = f"{title} {description}".casefold()
+    skills = _as_profile_list(profile.get("skills"))
+    technical_terms = [term for term in TECH_SKILL_TERMS if re.search(rf"(?<![a-z0-9+#]){re.escape(term.casefold())}(?![a-z0-9+#])", text)]
+    technical_hits = [term for term in technical_terms if any(term.casefold() in skill.casefold() or skill.casefold() in term.casefold() for skill in skills)]
+    technical_score = round(100 * len(technical_hits) / len(technical_terms)) if technical_terms else 50
+    technical_detail = (f"Matched {len(technical_hits)} of {len(technical_terms)} detected role skills: {', '.join(technical_hits[:8]) or 'none'}." if technical_terms else "No supported technical terms were found to compare; neutral score until reviewed.")
 
-    skills = [str(item).strip() for item in profile.get("skills", []) if str(item).strip()]
-    skill_hits = [skill for skill in skills if skill.lower() in text]
-    skill_missing = [skill for skill in skills if skill not in skill_hits]
-    skill_score = min(42, round(42 * len(skill_hits) / max(1, min(len(skills), 8)))) if skills else 0
-    score += skill_score
-    if skill_hits:
-        reasons.append("Matching skills: " + ", ".join(skill_hits[:8]))
-    breakdown["skills"] = {
-        "label": "Skills",
-        "score": skill_score,
-        "max": 42,
-        "detail": (
-            f"Matched: {', '.join(skill_hits[:6])}"
-            + (f" · Missing or not stated: {', '.join(skill_missing[:4])}" if skill_missing else "")
-            if skill_hits
-            else ("No saved skills to compare" if not skills else "No saved skills found in the posting")
-        ),
-    }
-
-    targets = [str(item).strip() for item in profile.get("target_titles", []) if str(item).strip()]
-    title_hits = [target for target in targets if target.lower() in title_text]
-    related_title = bool(targets and not title_hits and any(token in title_text for target in targets for token in target.lower().split() if len(token) > 3))
-    title_score = 24 if title_hits else 10 if related_title else 0
-    score += title_score
-    if title_hits:
-        reasons.append("Title matches target: " + title_hits[0])
-    elif related_title:
-        reasons.append("Title has related target-role terms")
-    breakdown["title"] = {
-        "label": "Target role",
-        "score": title_score,
-        "max": 24,
-        "detail": f"Matched: {title_hits[0]}" if title_hits else ("Related title terms found" if related_title else "No saved target title match"),
-    }
-
-    min_salary = profile.get("minimum_salary")
-    salary_min, salary_max = parse_salary(str(job.get("salary_text") or ""))
-    salary_score = 0
-    if min_salary and salary_max and salary_max >= int(min_salary):
-        salary_score = 12
-        reasons.append("Stated salary overlaps your minimum")
-        salary_detail = "Stated range overlaps your saved minimum"
-    elif min_salary and not salary_max:
-        reasons.append("Salary not stated; check before applying")
-        salary_detail = "Salary not stated; verify on the official posting"
-    elif min_salary:
-        salary_detail = "Stated range does not reach your saved minimum"
+    history = profile.get("employment_history") if isinstance(profile.get("employment_history"), list) else []
+    history_text = " ".join(" ".join(str(value) for value in item.values()) if isinstance(item, dict) else str(item) for item in history).casefold()
+    history_hits = [term for term in technical_terms if term.casefold() in history_text]
+    years_match = re.search(r"(\d{1,2})\+?\s+years?(?:\s+of)?\s+(?:relevant\s+|professional\s+|hands-on\s+)?experience", description, re.I)
+    years_required = int(years_match.group(1)) if years_match else None
+    years_candidate = profile.get("years_experience")
+    if years_required and years_candidate is not None:
+        try:
+            experience_score = min(100, round(100 * float(years_candidate) / years_required))
+        except (ValueError, TypeError):
+            experience_score = 50
+        experience_detail = f"Profile lists {years_candidate} year(s); posting states {years_required}+ year(s). This is a rough screen, not an eligibility ruling."
+    elif history:
+        history_titles = [str(item.get("title") or "") for item in history if isinstance(item, dict)]
+        title_tokens = {word for word in re.findall(r"[a-z0-9+#]+", title.casefold()) if len(word) > 2}
+        title_overlap = any(title_tokens & {word for word in re.findall(r"[a-z0-9+#]+", role.casefold()) if len(word) > 2} for role in history_titles)
+        experience_score = min(100, 50 + min(30, len(history_hits) * 10) + (20 if title_overlap else 0))
+        experience_detail = f"Found {len(history_hits)} posting skill(s) in saved work history" + (" and a related job title." if title_overlap else "; review the role-by-role evidence.")
     else:
-        salary_detail = "No minimum salary saved"
-    score += salary_score
-    breakdown["salary"] = {"label": "Salary", "score": salary_score, "max": 12, "detail": salary_detail}
+        experience_score = 50
+        experience_detail = "Work history is not available for a reliable experience comparison."
 
-    modes = [str(item).lower() for item in profile.get("work_modes", []) if str(item).strip()]
-    mode_text = (str(job.get("work_mode") or "") + " " + str(job.get("location") or "") + " " + description[:2000]).lower()
-    mode_hit = next((mode for mode in modes if mode in mode_text), None)
-    mode_score = 10 if mode_hit else 0
-    score += mode_score
-    if mode_hit:
-        reasons.append("Work mode signal: " + mode_hit)
-    breakdown["work_mode"] = {"label": "Work mode", "score": mode_score, "max": 10, "detail": f"Matched: {mode_hit}" if mode_hit else ("No saved work-mode match" if modes else "No work-mode preference saved")}
+    behavioral_preferences = _as_profile_list(profile.get("work_style_preferences"))
+    deal_breakers = _as_profile_list(profile.get("work_style_deal_breakers"))
+    behavior_hits = [item for item in behavioral_preferences if item.casefold() in text]
+    behavior_conflicts = [item for item in deal_breakers if item.casefold() in text]
+    if behavioral_preferences:
+        behavioral_score = round(100 * len(behavior_hits) / len(behavioral_preferences))
+    elif deal_breakers:
+        behavioral_score = 50
+    else:
+        behavioral_score = 50
+    if behavior_conflicts:
+        behavioral_score = min(behavioral_score, 25)
+    behavioral_detail = "No work-style preferences are saved; neutral score rather than an inference." if not behavioral_preferences and not deal_breakers else f"Work-style signals found: {', '.join(behavior_hits) or 'none'}." + (f" Potential deal-breaker terms: {', '.join(behavior_conflicts)}." if behavior_conflicts else "")
 
-    location_preferences = [str(item).strip() for item in profile.get("location_preferences", []) if str(item).strip()]
-    loc = (str(job.get("location") or "") + " " + description[:1000]).lower()
-    location_hit = next((place for place in location_preferences if place.lower() in loc), None)
-    location_score = 8 if location_hit else 0
-    score += location_score
-    if location_hit:
-        reasons.append("Location matches a saved preference")
-    breakdown["location"] = {"label": "Location", "score": location_score, "max": 8, "detail": f"Matched: {location_hit}" if location_hit else ("No saved location match" if location_preferences else "No location preference saved")}
-
-    employment_type = str(job.get("employment_type") or infer_employment_type(title, description))
-    employment_preferences = [str(item).strip() for item in profile.get("employment_type_preferences", []) if str(item).strip()]
-    employment_text = employment_type.lower()
-    employment_hit = next((pref for pref in employment_preferences if pref.lower() in employment_text or (pref.lower() == "w2" and "w-2" in employment_text)), None)
-    employment_score = 4 if employment_hit else 0
-    score += employment_score
-    if employment_hit:
-        reasons.append("Employment type matches preference: " + employment_hit)
-    breakdown["employment_type"] = {
-        "label": "Employment type",
-        "score": employment_score,
-        "max": 4,
-        "detail": f"Posting: {employment_type}" + (f" · Preference matched: {employment_hit}" if employment_hit else (" · No preference match" if employment_preferences else " · No preference saved")),
-    }
+    goals = _as_profile_list(profile.get("career_goals")) + _as_profile_list(profile.get("target_titles"))
+    title_tokens = {word for word in re.findall(r"[a-z0-9+#]+", title.casefold()) if len(word) > 2}
+    goal_scores = []
+    for goal in goals:
+        if goal.casefold() in title.casefold():
+            goal_scores.append(100)
+            continue
+        goal_tokens = {word for word in re.findall(r"[a-z0-9+#]+", goal.casefold()) if len(word) > 2}
+        if goal_tokens:
+            goal_scores.append(round(100 * len(goal_tokens & title_tokens) / len(goal_tokens)))
+    career_score = max(goal_scores) if goal_scores else 50
+    career_detail = f"Best title overlap with saved career goals/targets: {career_score}%." if goals else "No career goals or target titles are saved; neutral score."
 
     sponsor_status, sponsor_evidence = detect_sponsorship(description)
-    sponsor_score = 0
     sponsor_url = str(job.get("url") or "") if sponsor_evidence else ""
-    if sponsor_status == "explicit support; verify role details":
-        sponsor_score = 4
-        score += sponsor_score
-        sponsor_detail = "The posting states support; verify the exact petition and role requirements"
-    elif sponsor_status == "not stated in listing" and sponsor:
+    if sponsor_status == "not stated in listing" and sponsor:
         sponsor_status = "employer filing history only"
         sponsor_evidence = f"{sponsor.evidence_type}; {sponsor.evidence_year or 'year not stated'}; {sponsor.filing_count} filing(s). This is employer history, not a guarantee for this job."
         sponsor_url = sponsor.evidence_url
-        sponsor_score = 4
-        score += sponsor_score
-        sponsor_detail = "Historical employer evidence only; not a promise for this role"
-    elif sponsor_status == "posting says no":
-        sponsor_detail = "The posting says sponsorship is unavailable or required authorization is not provided"
-    elif sponsor_status == "transfer only; new sponsorship unclear":
-        sponsor_detail = "A transfer is mentioned, but a new H-1B petition is not confirmed"
-    elif sponsor_status == "conflicting sponsorship wording":
-        sponsor_detail = "The posting contains both positive and restrictive sponsorship language"
-    elif sponsor_status == "visa wording needs review":
-        sponsor_detail = "Visa or sponsorship is mentioned without confirming new H-1B support"
-    else:
-        sponsor_evidence = "No role-specific sponsorship wording found in the indexed description."
-        sponsor_detail = "No role-specific sponsorship statement found"
-    breakdown["sponsorship"] = {"label": "Sponsorship signal", "score": sponsor_score, "max": 4, "detail": sponsor_detail}
-    return min(100, score), reasons, breakdown, sponsor_status, sponsor_evidence, sponsor_url
-
+    eligibility = _eligibility_gate(description, profile, sponsor_status)
+    language = _language_gate(description, profile)
+    location = _location_gate(job, profile, description)
+    dimensions = {
+        "technical_skills": {"label": "Technical skills", "score": technical_score, "max": 100, "weight": 30, "detail": technical_detail},
+        "experience_match": {"label": "Experience match", "score": experience_score, "max": 100, "weight": 25, "detail": experience_detail},
+        "behavioral_fit": {"label": "Behavioral / culture fit", "score": behavioral_score, "max": 100, "weight": 15, "detail": behavioral_detail},
+        "career_alignment": {"label": "Career alignment", "score": career_score, "max": 100, "weight": 30, "detail": career_detail},
+    }
+    breakdown: dict[str, Any] = {
+        **dimensions,
+        "eligibility_gate": {"label": "Eligibility", **eligibility},
+        "language_gate": {"label": "Language", **language},
+        "location_gate": {"label": "Location & logistics", **location},
+        "salary_signal": {"label": "Salary signal", "detail": "No salary range stated." if str(job.get("salary_text") or "").casefold() in {"", "not stated"} else str(job.get("salary_text")) + " (compare with your minimum before applying)."},
+        "employment_signal": {"label": "Employment type", "detail": str(job.get("employment_type") or infer_employment_type(title, description))},
+        "sponsorship_signal": {"label": "Sponsorship evidence", "detail": sponsor_evidence or "No role-specific sponsorship wording found."},
+    }
+    overall = round(technical_score * 0.30 + experience_score * 0.25 + behavioral_score * 0.15 + career_score * 0.30)
+    reasons = [f"{item['label']}: {item['score']}/100" for item in dimensions.values()]
+    reasons.extend(f"{gate['status']}: {label} — {gate['detail']}" for label, gate in (("Eligibility", eligibility), ("Language", language), ("Location & logistics", location)) if gate["status"] != "PASS")
+    if any(gate["status"] == "FAIL" for gate in (eligibility, language, location)):
+        overall = 0
+        reasons.insert(0, "Hard mismatch detected; application drafting is blocked until role/profile facts are reviewed.")
+    return overall, reasons, breakdown, sponsor_status, sponsor_evidence or "No role-specific sponsorship wording found in the indexed description.", sponsor_url
 
 def detect_sponsorship(description: str) -> tuple[str, str]:
     """Classify role text conservatively and keep a short supporting excerpt."""
@@ -1066,6 +1157,7 @@ def queue_qualified_jobs_for_review(db: Session, profile: dict[str, Any]) -> int
         return 0
     threshold = max(0, int(profile.get("match_threshold") or 50))
     candidates = db.scalars(select(JobRow).where(JobRow.fit_score >= threshold)).all()
+    candidates = [job for job in candidates if not any(isinstance(value, dict) and value.get("status") == "FAIL" for key, value in (job.fit_breakdown or {}).items() if key.endswith("_gate"))]
     if profile_requires_sponsorship(profile):
         blocked_signals = {"posting says no", "conflicting sponsorship wording"}
         if profile_requires_new_h1b(profile):
@@ -1396,6 +1488,7 @@ class DraftReviewBody(BaseModel):
 class TailorBody(BaseModel):
     confirmed_resume_use: bool = False
     use_external_ai: bool = False
+    external_ai_confirmed: bool = False
 
 
 class ManualJobItem(BaseModel):
@@ -1456,14 +1549,10 @@ app = FastAPI(title="Neural Ant", version="1.0.0", docs_url="/api/docs" if APP_E
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
     origin = request.headers.get("origin", "")
-    extension_origin = origin.startswith("chrome-extension://") and len(origin) > len("chrome-extension://")
     if request.method in {"POST", "PUT", "PATCH", "DELETE"} and request.url.path.startswith("/api/") and request.url.path not in {"/api/auth/login", "/api/internal/run-search"}:
-        if origin and origin.rstrip("/") != str(request.base_url).rstrip("/") and not extension_origin:
+        if origin and origin.rstrip("/") != str(request.base_url).rstrip("/"):
             return JSONResponse({"detail": "Cross-origin requests are not allowed."}, status_code=403)
     response = await call_next(request)
-    if extension_origin and request.url.path == "/api/form-profile":
-        response.headers["Access-Control-Allow-Origin"] = origin
-        response.headers["Vary"] = "Origin"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
@@ -1604,57 +1693,6 @@ def get_profile(_: None = Depends(require_auth), db: Session = Depends(get_db)):
     return {"profile": {**DEFAULT_PROFILE, **(row.data or {})}, "resume": {"filename": resume.filename, "uploaded_at": now_iso(resume.uploaded_at)} if resume else None}
 
 
-@app.get("/api/form-profile")
-def get_form_profile(_: None = Depends(require_auth), db: Session = Depends(get_db)):
-    """Return only user-approved contact/profile fields for the local browser extension."""
-    row = ensure_profile(db)
-    data = {**DEFAULT_PROFILE, **(row.data or {})}
-    return {
-        "name": data.get("name", ""),
-        "preferred_name": data.get("preferred_name", ""),
-        "email": data.get("email", ""),
-        "phone": data.get("phone", ""),
-        "location": data.get("location", ""),
-        "address_line1": data.get("address_line1", ""),
-        "address_line2": data.get("address_line2", ""),
-        "city": data.get("city", ""),
-        "state": data.get("state", ""),
-        "postal_code": data.get("postal_code", ""),
-        "country": data.get("country", ""),
-        "current_company": data.get("current_company", ""),
-        "current_role": data.get("role", ""),
-        "linkedin_url": data.get("linkedin_url", ""),
-        "github_url": data.get("github_url", ""),
-        "portfolio_url": data.get("portfolio_url", ""),
-        "website_url": data.get("website_url", ""),
-        "years_experience": data.get("years_experience"),
-        "skills": data.get("skills", []),
-        "employment_history": data.get("employment_history", []),
-        "education_history": data.get("education_history", []),
-        "certifications": data.get("certifications", []),
-        "languages": data.get("languages", []),
-        "summary": data.get("summary", ""),
-        "work_authorization": data.get("work_authorization", ""),
-        "sponsorship_preferences": data.get("sponsorship_preferences", ""),
-    }
-
-
-@app.get("/api/contact-profile")
-def get_extension_contact_profile(_: None = Depends(require_auth), db: Session = Depends(get_db)):
-    """Return only the contact fields supported by the supervised extension."""
-    row = ensure_profile(db)
-    data = {**DEFAULT_PROFILE, **(row.data or {})}
-    return {
-        "name": data.get("name", ""),
-        "email": data.get("email", ""),
-        "phone": data.get("phone", ""),
-        "location": data.get("city") or data.get("location", ""),
-        "state": data.get("state", ""),
-        "linkedin_url": data.get("linkedin_url", ""),
-        "website_url": data.get("portfolio_url") or data.get("website_url", ""),
-    }
-
-
 @app.put("/api/profile")
 def save_profile(body: ProfileBody, _: None = Depends(require_auth), db: Session = Depends(get_db)):
     allowed = set(DEFAULT_PROFILE)
@@ -1663,7 +1701,7 @@ def save_profile(body: ProfileBody, _: None = Depends(require_auth), db: Session
         raise HTTPException(status_code=422, detail="Enter a valid notification email address.")
     if "minimum_salary" in values and values["minimum_salary"] not in (None, ""):
         values["minimum_salary"] = int(values["minimum_salary"])
-    for key in ("skills", "target_titles", "location_preferences", "work_modes"):
+    for key in ("skills", "languages", "target_titles", "career_goals", "work_style_preferences", "work_style_deal_breakers", "location_preferences", "work_modes", "employment_type_preferences"):
         if key in values and not isinstance(values[key], list):
             values[key] = [part.strip() for part in str(values[key]).split(",") if part.strip()]
     if "match_threshold" in values:
@@ -1671,7 +1709,7 @@ def save_profile(body: ProfileBody, _: None = Depends(require_auth), db: Session
     row = ensure_profile(db)
     previous = {**DEFAULT_PROFILE, **(row.data or {})}
     updated = {**previous, **values}
-    scoring_fields = ("skills", "target_titles", "minimum_salary", "work_modes", "location_preferences", "employment_type_preferences")
+    scoring_fields = ("skills", "languages", "target_titles", "career_goals", "work_style_preferences", "work_style_deal_breakers", "years_experience", "employment_history", "minimum_salary", "work_modes", "location_preferences", "employment_type_preferences", "relocation_preference")
     scoring_changed = any(previous.get(key) != updated.get(key) for key in scoring_fields)
     row.data = updated
     row.updated_at = datetime.now(timezone.utc)
@@ -1710,7 +1748,7 @@ async def upload_resume(file: UploadFile = File(...), _: None = Depends(require_
     previous_profile = dict(profile_data)
     extracted_keys = (
         "name", "email", "phone", "location", "address_line1", "city", "state", "postal_code", "country", "linkedin_url", "skills",
-        "current_company", "role", "education", "employment_history", "education_history",
+        "current_company", "role", "education", "employment_history", "education_history", "languages",
     )
     updated_fields = []
     for key in extracted_keys:
@@ -1721,11 +1759,22 @@ async def upload_resume(file: UploadFile = File(...), _: None = Depends(require_
         # while refreshing extracted details instead of leaving stale values.
         if key == "skills":
             profile_data[key] = list(dict.fromkeys([*(profile_data.get(key) or []), *extracted[key]]))
+        elif key == "languages":
+            language_entries = []
+            for item in profile_data.get(key, []):
+                if isinstance(item, dict):
+                    language_entries.append(item)
+                elif isinstance(item, str) and item.strip():
+                    parts = re.split(r"\s+[—–-]\s+", item.strip(), maxsplit=1)
+                    language_entries.append({"language": parts[0], "proficiency": parts[1] if len(parts) > 1 else ""})
+            language_names = {str(item.get("language", "")).casefold() for item in language_entries}
+            language_entries.extend(item for item in extracted[key] if str(item.get("language", "")).casefold() not in language_names)
+            profile_data[key] = language_entries
         else:
             profile_data[key] = extracted[key]
         updated_fields.append(key)
     profile_row.data = profile_data
-    scoring_fields = ("skills", "target_titles", "minimum_salary", "work_modes", "location_preferences", "employment_type_preferences")
+    scoring_fields = ("skills", "target_titles", "career_goals", "work_style_preferences", "work_style_deal_breakers", "languages", "years_experience", "employment_history", "minimum_salary", "work_modes", "location_preferences", "employment_type_preferences", "relocation_preference")
     if any(previous_profile.get(key) != profile_data.get(key) for key in scoring_fields):
         refresh_job_scores(db, profile_data)
     db.commit()
@@ -3028,12 +3077,17 @@ def final_resume_docx_text_audit(content: bytes, job: JobRow) -> str:
 def tailor_resume(job_id: int, body: TailorBody, _: None = Depends(require_auth), db: Session = Depends(get_db)):
     if not body.confirmed_resume_use:
         raise HTTPException(status_code=400, detail="Confirm that Neural Ant may use your stored resume to prepare this draft.")
+    if body.use_external_ai and not body.external_ai_confirmed:
+        raise HTTPException(status_code=400, detail="Opt in to external AI before sending redacted resume and job text to the configured provider.")
     resume = db.get(ResumeRow, 1)
     if not resume:
         raise HTTPException(status_code=409, detail="Upload a resume first.")
     job = db.get(JobRow, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found.")
+    failed_gates = [value.get("detail", "") for key, value in (job.fit_breakdown or {}).items() if key.endswith("_gate") and isinstance(value, dict) and value.get("status") == "FAIL"]
+    if failed_gates:
+        raise HTTPException(status_code=409, detail="Application drafting is blocked by a hard fit gate: " + " ".join(failed_gates))
     profile = ensure_profile(db).data or DEFAULT_PROFILE
     if body.use_external_ai:
         external_resume = redact_external_candidate_text(resume.extracted_text, profile)

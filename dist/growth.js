@@ -35,7 +35,7 @@
     const percent = Math.round((complete / items.length) * 100);
     const details = items.map((item) => '<div class="strength-item ' + (item.ok ? 'complete' : 'missing') + '"><span>' + (item.ok ? '✓' : '○') + '</span><div><b>' + escapeHtml(item.label) + '</b><small>' + escapeHtml(item.ok ? 'Verified or present' : item.tip) + '</small></div></div>').join('');
     const note = missing ? 'Complete ' + missing + ' item' + (missing === 1 ? '' : 's') + ' to improve discovery and reduce manual form work.' : 'Your baseline is complete. Keep every claim verified.';
-    card.innerHTML = '<div class="strength-head"><div><div class="eyebrow">PROFILE READINESS</div><h3>' + percent + '% ready for matching and supervised autofill</h3><p>' + note + '</p></div><strong>' + complete + '/' + items.length + '</strong></div><div class="strength-bar"><span style="width:' + percent + '%"></span></div><div class="strength-grid">' + details + '</div>';
+    card.innerHTML = '<div class="strength-head"><div><div class="eyebrow">PROFILE READINESS</div><h3>' + percent + '% ready for matching and application prep</h3><p>' + note + '</p></div><strong>' + complete + '/' + items.length + '</strong></div><div class="strength-bar"><span style="width:' + percent + '%"></span></div><div class="strength-grid">' + details + '</div>';
   }
 
   function configureSourceOptions() {
