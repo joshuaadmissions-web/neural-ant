@@ -26,8 +26,9 @@ async function runOneClickWorkflow(){
  try{
   if(!savedResume){setStatus('Upload a PDF or DOCX resume to start. The profile fields will fill automatically.');$('homeResumeFile')?.focus({preventScroll:true});return}
   setStatus('Saving your profile and preparing the search…');
-  const profile=await saveProfile({silent:true});
-  if(!profile)throw Error('Profile could not be saved. Review your profile fields and try again.');
+  const profileSaved=await saveProfile({silent:true});
+  if(!profileSaved)throw Error('Profile could not be saved. Review your profile fields and try again.');
+  const {profile}=await api('/profile');
   if(!Array.isArray(profile.target_titles)||!profile.target_titles.length){setStatus('Add at least one target role title in your profile, then start the search.');if(results){results.innerHTML='<button class="btn" type="button" onclick="openWorkflowCommand(\'/setup\')">Review profile preferences</button>';results.classList.remove('hidden')}return}
   await syncFreehireQuery(profile);
   if($('freehireCountry'))$('freehireCountry').value='US';
@@ -41,7 +42,7 @@ async function runOneClickWorkflow(){
   await loadJobs();
   const threshold=Math.max(50,Number(profile.match_threshold)||50);
   const rows=await api('/jobs?min_score='+threshold);
-  const eligible=rows.filter(job=>job.sponsorship_status==='explicit support; verify role details'&&/\b(?:h[\s-]?1b|visa|immigration)\b/i.test(String(job.sponsorship_evidence||''))&&(String(job.work_mode||'')+' '+String(job.location||'')).toLowerCase().includes('remote')&&String(job.url||'').startsWith('https://')).sort((a,b)=>(Number(b.fit_score)||0)-(Number(a.fit_score)||0)).slice(0,5);
+  const eligible=rows.filter(job=>job.sponsorship_status==='explicit support; verify role details'&&!/\b(?:h[\s-]?1b|visa)\s+transfers?\b|\btransfers?\s+(?:an?\s+)?h[\s-]?1b\b/i.test(String(job.sponsorship_evidence||''))&&/\b(?:h[\s-]?1b|visa|immigration)\b/i.test(String(job.sponsorship_evidence||''))&&(String(job.work_mode||'')+' '+String(job.location||'')).toLowerCase().includes('remote')&&String(job.url||'').startsWith('https://')).sort((a,b)=>(Number(b.fit_score)||0)-(Number(a.fit_score)||0)).slice(0,5);
   if(!eligible.length){setStatus(searchNote+' No roles met the remote, '+threshold+'% fit, and explicit sponsorship-wording checks. Review other matches if you want to broaden the search.');if(results){results.innerHTML='<p>There are no current roles that meet all three saved filters. Sponsorship wording can be incomplete; use Find roles to inspect listings that need recruiter confirmation.</p><button class="btn" type="button" onclick="openWorkflowCommand(\'/scrape\')">Review all matches</button>';results.classList.remove('hidden')}return}
   setStatus('Preparing review packs for '+eligible.length+' matching role'+(eligible.length===1?'':'s')+'…');
   const [applications,drafts]=await Promise.all([api('/applications'),api('/drafts?summary=true')]);

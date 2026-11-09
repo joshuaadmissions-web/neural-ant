@@ -15,6 +15,7 @@ const cacheVersion = Date.now().toString(36);
 const html = await readFile(indexPath, "utf8");
 await writeFile(indexPath, html
   .replaceAll("./app.js", `./app.js?v=${cacheVersion}`)
-  .replaceAll("./growth.js", `./growth.js?v=${cacheVersion}`));
+  .replaceAll("./growth.js", `./growth.js?v=${cacheVersion}`)
+  .replaceAll("./styles.css", `./styles.css?v=${cacheVersion}`));
 
 console.log("Neural Ant built into dist/.");

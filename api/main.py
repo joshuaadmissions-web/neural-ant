@@ -477,7 +477,11 @@ def extract_profile(text: str) -> dict[str, Any]:
     header = "\n".join(lines[:8])
     name = ""
     for line in lines[:8]:
-        if 2 <= len(line) <= 72 and not re.search(r"@|https?://|\d{3}|resume|curriculum vitae", line, re.I):
+        if (
+            2 <= len(line) <= 72
+            and not re.fullmatch(r"page\s+\d+(?:\s+(?:of|/)\s+\d+)?", line, re.I)
+            and not re.search(r"@|https?://|\d{3}|resume|curriculum vitae", line, re.I)
+        ):
             name = line
             break
     email_match = re.search(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", text, re.I)
@@ -962,7 +966,10 @@ def detect_sponsorship(description: str) -> tuple[str, str]:
         re.compile(r"\b(?:will|can|may|does|do|offer|offers|provide|provides|support|supports)\s+(?:sponsor|sponsorship)\b.{0,80}\b(?:visa|h[\s-]?1b|immigration|work authorization)?\b", re.I),
         re.compile(r"\b(?:sponsor|sponsors|sponsoring)\b.{0,80}\b(?:h[\s-]?1b|visa|immigration)\b", re.I),
     )
-    transfer = re.compile(r"\b(?:h[\s-]?1b|visa)\s+transfer\b|\btransfer\s+(?:an?\s+)?h[\s-]?1b\b", re.I).search(text)
+    transfer = re.compile(
+        r"\b(?:h[\s-]?1b|visa)\s+transfers?\b|\btransfers?\s+(?:an?\s+)?h[\s-]?1b\b",
+        re.I,
+    ).search(text)
     mention = re.compile(r"\b(?:sponsor(?:ship|ed|s|ing)?|visa|h[\s-]?1b|work authorization|immigration)\b", re.I).search(text)
     negative = next((pattern.search(text) for pattern in negative_patterns if pattern.search(text)), None)
     positive = next((pattern.search(text) for pattern in positive_patterns if pattern.search(text)), None)
@@ -3106,7 +3113,7 @@ def home():
     index = DIST_DIR / "index.html"
     if not index.exists():
         raise HTTPException(status_code=503, detail="Build the frontend with npm run build first.")
-    return FileResponse(index)
+    return FileResponse(index, headers={"Cache-Control": "no-store, max-age=0", "Pragma": "no-cache"})
 
 
 if DIST_DIR.exists():
