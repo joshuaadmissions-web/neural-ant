@@ -237,7 +237,7 @@ PROFILE_EXPANSION_SKILLS = (
 MAX_TEMPLATE_BYTES = 10 * 1024 * 1024
 
 SUPPORTED_ATS = {"greenhouse", "lever", "ashby", "smartrecruiters", "adzuna", "usajobs"}
-STAGES = {"Shortlist", "Applied", "Interview", "Decision", "Archived"}
+STAGES = {"Shortlist", "Applied", "Done", "Interview", "Decision", "Archived"}
 APPLICATION_OUTCOMES = {"", "Hired", "Rejected", "No response", "Offer declined", "Withdrawn"}
 SENSITIVE_HEADERS = {"host", "x-forwarded-host"}
 try:
@@ -1497,6 +1497,8 @@ def ensure_database_schema() -> None:
         if name not in application_columns:
             with engine.begin() as connection:
                 connection.execute(sql_text(f"ALTER TABLE applications ADD COLUMN {name} {definition}"))
+    with engine.begin() as connection:
+        connection.execute(sql_text("UPDATE applications SET stage = 'Done' WHERE stage = 'Applied'"))
     draft_columns = {column["name"] for column in inspect(engine).get_columns("resume_drafts")}
     for name, definition in (("cover_letter", "TEXT DEFAULT ''"), ("review_notes", "TEXT DEFAULT ''")):
         if name not in draft_columns:
@@ -2136,12 +2138,24 @@ def scheduled_search(x_cron_secret: str | None = Header(default=None), db: Sessi
 
 
 @app.get("/api/jobs")
-def get_jobs(min_score: int = 0, include_manual: bool = True, _: None = Depends(require_auth), db: Session = Depends(get_db)):
+def get_jobs(min_score: int = 0, include_manual: bool = True, exclude_completed: bool = False, _: None = Depends(require_auth), db: Session = Depends(get_db)):
     threshold = max(0, min_score)
     conditions = [JobRow.fit_score >= threshold]
     if include_manual:
         conditions.append(JobRow.source == "Manual")
+    completed_stages = ("Applied", "Done", "Interview", "Decision", "Archived")
+    if exclude_completed:
+        completed_job_ids = select(ApplicationRow.job_id).where(ApplicationRow.stage.in_(completed_stages))
+        conditions.append(~JobRow.id.in_(completed_job_ids))
     rows = db.scalars(select(JobRow).where(or_(*conditions)).order_by(JobRow.fit_score.desc(), JobRow.first_seen.desc()).limit(300)).all()
+    if exclude_completed:
+        completed_roles = db.execute(
+            select(JobRow.company_name, JobRow.title)
+            .join(ApplicationRow, ApplicationRow.job_id == JobRow.id)
+            .where(ApplicationRow.stage.in_(completed_stages))
+        ).all()
+        completed_role_keys = {(company_key(company), company_key(title)) for company, title in completed_roles}
+        rows = [row for row in rows if (company_key(row.company_name), company_key(row.title)) not in completed_role_keys]
     profile = ensure_profile(db).data or DEFAULT_PROFILE
     if profile_requires_sponsorship(profile):
         sponsor_priority = {
@@ -2305,7 +2319,7 @@ def application_age_days(value: datetime, now: datetime | None = None) -> int:
 def list_stale_applications(days: int = 60, _: None = Depends(require_auth), db: Session = Depends(get_db)):
     if days < 1 or days > 365:
         raise HTTPException(status_code=422, detail="Stale review window must be between 1 and 365 days.")
-    rows = db.scalars(select(ApplicationRow).where(ApplicationRow.stage != "Archived", ApplicationRow.outcome == "").order_by(ApplicationRow.updated_at.asc())).all()
+    rows = db.scalars(select(ApplicationRow).where(ApplicationRow.stage.notin_(("Archived", "Done", "Applied")), ApplicationRow.outcome == "").order_by(ApplicationRow.updated_at.asc())).all()
     stale = [serialize_application(row) | {"age_days": application_age_days(row.updated_at)} for row in rows if application_age_days(row.updated_at) >= days]
     return {"days": days, "count": len(stale), "applications": stale}
 
@@ -2371,7 +2385,7 @@ def download_application_report(_: None = Depends(require_auth), db: Session = D
     """Create a self-contained offline pipeline report with no profile or resume data."""
     applications = db.scalars(select(ApplicationRow).order_by(ApplicationRow.updated_at.desc())).all()
     jobs = db.scalars(select(JobRow).order_by(JobRow.fit_score.desc(), JobRow.first_seen.desc()).limit(100)).all()
-    stage_order = ("Shortlist", "Applied", "Interview", "Decision", "Archived")
+    stage_order = ("Done", "Shortlist", "Interview", "Decision", "Archived")
     stage_counts = {stage: sum(1 for item in applications if item.stage == stage) for stage in stage_order}
     max_stage_count = max(stage_counts.values(), default=0) or 1
     chart_height = max(70, 34 * len(stage_counts))
@@ -2556,7 +2570,7 @@ def preview_email_status(body: EmailPreviewBody, _: None = Depends(require_auth)
     if kind in {"assessment", "interview"}:
         proposed_stage = "Interview"
     elif kind == "ack" and item.stage == "Shortlist":
-        proposed_stage = "Applied"
+        proposed_stage = "Done"
     elif kind in {"offer", "rejection"}:
         proposed_stage = "Decision"
         if kind == "rejection":
@@ -2691,7 +2705,7 @@ def update_application(application_id: int, body: StageBody, _: None = Depends(r
     if not row:
         raise HTTPException(status_code=404, detail="Application not found.")
     if body.stage is not None:
-        row.stage = body.stage
+        row.stage = "Done" if body.stage == "Applied" else body.stage
     if body.notes is not None:
         row.notes = body.notes.strip()
     if body.follow_up_on is not None:
