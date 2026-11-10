@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 420" role="img" aria-labelledby="title desc">
+  <title id="title">Neural Ant job search workspace</title>
+  <desc id="desc">Upload a resume, discover and rank jobs, prepare tailored drafts, then review and submit on the employer's site.</desc>
+  <rect width="1280" height="420" rx="28" fill="#F4EDE0"/>
+  <circle cx="1138" cy="48" r="190" fill="#FF6B5B" opacity=".13"/>
+  <circle cx="1040" cy="418" r="210" fill="#14213D" opacity=".06"/>
+  <g font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif">
+    <rect x="72" y="62" width="360" height="38" rx="19" fill="#14213D"/>
+    <circle cx="94" cy="81" r="6" fill="#FF6B5B"/>
+    <text x="111" y="87" fill="#F4EDE0" font-size="13" font-weight="700" letter-spacing="1.35">YOUR CAREER SEARCH, ORGANIZED</text>
+    <text x="72" y="174" fill="#14213D" font-size="48" font-weight="750">A clearer path from</text>
+    <text x="72" y="232" fill="#14213D" font-size="48" font-weight="750">resume to application.</text>
+    <text x="74" y="278" fill="#46536A" font-size="20">Find roles, understand the fit, and prepare</text>
+    <text x="74" y="307" fill="#46536A" font-size="20">a draft pack you can review before applying.</text>
+
+    <path d="M690 211 H1210" fill="none" stroke="#14213D" stroke-width="3" stroke-dasharray="7 11" opacity=".24"/>
+    <g>
+      <rect x="674" y="140" width="158" height="144" rx="18" fill="#FFFFFF" stroke="#14213D" stroke-opacity=".1"/>
+      <circle cx="704" cy="176" r="18" fill="#F4EDE0"/>
+      <text x="704" y="182" text-anchor="middle" fill="#14213D" font-size="15" font-weight="700">1</text>
+      <text x="694" y="222" fill="#14213D" font-size="16" font-weight="700">Profile</text>
+      <text x="694" y="249" fill="#687387" font-size="13">Resume verified</text>
+    </g>
+    <g>
+      <rect x="854" y="140" width="158" height="144" rx="18" fill="#FFFFFF" stroke="#14213D" stroke-opacity=".1"/>
+      <circle cx="884" cy="176" r="18" fill="#F4EDE0"/>
+      <text x="884" y="182" text-anchor="middle" fill="#14213D" font-size="15" font-weight="700">2</text>
+      <text x="874" y="222" fill="#14213D" font-size="16" font-weight="700">Discover</text>
+      <text x="874" y="249" fill="#687387" font-size="13">Search ranked</text>
+    </g>
+    <g>
+      <rect x="1034" y="140" width="158" height="144" rx="18" fill="#14213D"/>
+      <circle cx="1064" cy="176" r="18" fill="#FF6B5B"/>
+      <text x="1064" y="182" text-anchor="middle" fill="#14213D" font-size="15" font-weight="700">3</text>
+      <text x="1054" y="222" fill="#F4EDE0" font-size="16" font-weight="700">Review</text>
+      <text x="1054" y="249" fill="#D2D7E0" font-size="13">Drafts to check</text>
+    </g>
+    <text x="674" y="337" fill="#46536A" font-size="12" font-weight="650" letter-spacing="1.05">YOU STAY IN CONTROL OF EVERY SUBMISSION</text>
+    <circle cx="1190" cy="333" r="8" fill="#FF6B5B"/>
+  </g>
+</svg>
